@@ -41,7 +41,6 @@
 #include "blur_iir_coefficients.cpp"
 #endif
 
-using namespace std;
 using namespace synfig;
 using namespace rendering;
 
@@ -163,11 +162,11 @@ software::Blur::blur_pattern(const Params &params)
 	int cols = params.src_rect.get_size()[0];
 	int pattern_rows = params.extra_size[1] + 1;
 	int pattern_cols = params.extra_size[0] + 1;
-	vector<ColorReal> src_surface(rows*cols*channels);
-	vector<ColorReal> dst_surface(rows*cols*channels);
-	vector<ColorReal> full_pattern;
-	vector<ColorReal> row_pattern;
-	vector<ColorReal> col_pattern;
+	std::vector<ColorReal> src_surface(rows*cols*channels);
+	std::vector<ColorReal> dst_surface(rows*cols*channels);
+	std::vector<ColorReal> full_pattern;
+	std::vector<ColorReal> row_pattern;
+	std::vector<ColorReal> col_pattern;
 	bool full = false;
 	bool cross = false;
 
@@ -276,8 +275,8 @@ software::Blur::blur_pattern(const Params &params)
 
 		if (!cross)
 		{
-			swap(arr_src_surface_cols.pointer, arr_dst_surface_cols.pointer);
-			swap(arr_src_surface.pointer, arr_dst_surface.pointer);
+			std::swap(arr_src_surface_cols.pointer, arr_dst_surface_cols.pointer);
+			std::swap(arr_src_surface.pointer, arr_dst_surface.pointer);
 			memset(&src_surface.front(), 0, sizeof(src_surface.front())*src_surface.size());
 		}
 
@@ -304,10 +303,10 @@ software::Blur::blur_fft(const Params &params)
 	const int channels = 4;
 	int rows = FFT::get_valid_count(params.src_rect.get_size()[1]);
 	int cols = FFT::get_valid_count(params.src_rect.get_size()[0]);
-	vector<Complex> surface(rows*cols*channels);
-	vector<Complex> full_pattern;
-	vector<Complex> row_pattern;
-	vector<Complex> col_pattern;
+	std::vector<Complex> surface(rows*cols*channels);
+	std::vector<Complex> full_pattern;
+	std::vector<Complex> row_pattern;
+	std::vector<Complex> col_pattern;
 	bool full = false;
 	bool cross = false;
 
@@ -406,7 +405,7 @@ software::Blur::blur_fft(const Params &params)
 		BlurTemplates::normalize_full_pattern( arr_row_pattern.reorder(0) );
 		BlurTemplates::normalize_full_pattern( arr_col_pattern.reorder(0) );
 
-		vector<Complex> surface_copy;
+		std::vector<Complex> surface_copy;
 		Array<Complex, 3> arr_surface_rows(arr_surface.group_items<Complex>().reorder(2, 0, 1));
 		Array<Complex, 3> arr_surface_cols(arr_surface_rows.reorder(0, 2, 1));
 
@@ -465,7 +464,7 @@ software::Blur::blur_box(const Params &params)
 	int rows = params.src_rect.get_size()[1];
 	int cols = params.src_rect.get_size()[0];
 
-	vector<ColorReal> surface(rows*cols*channels);
+	std::vector<ColorReal> surface(rows*cols*channels);
 	Array<ColorReal, 3> arr_surface(&surface.front());
 	arr_surface
 		.set_dim(rows, cols*channels)
@@ -493,8 +492,8 @@ software::Blur::blur_box(const Params &params)
 		return;
 	}
 
-	deque<ColorReal> q;
-	vector<ColorReal> surface_copy;
+	std::deque<ColorReal> q;
+	std::vector<ColorReal> surface_copy;
 	Array<ColorReal, 3> arr_surface_rows(arr_surface.reorder(2, 0, 1));
 	Array<ColorReal, 3> arr_surface_cols(arr_surface_rows.reorder(0, 2, 1));
 
@@ -546,7 +545,7 @@ software::Blur::IIRCoefficients
 software::Blur::get_iir_coefficients(Real radius)
 {
 	const Real precision(1e-8);
-	radius = max(iir_min_radius + precision, min(iir_max_radius - precision, fabs(radius)));
+	radius = std::max(iir_min_radius + precision, std::min(iir_max_radius - precision, fabs(radius)));
 
 	Real x = (radius - iir_min_radius)/iir_radius_step;
 	//int index = floor(x);
@@ -585,10 +584,10 @@ software::Blur::blur_iir(const Params &params)
 	int pattern_rows = params.extra_size[1] + 1;
 	int pattern_cols = params.extra_size[0] + 1;
 
-	vector<ColorReal> surface(rows*cols*channels);
-	vector<ColorReal> tmp_surface;
-	vector<ColorReal> row_pattern;
-	vector<ColorReal> col_pattern;
+	std::vector<ColorReal> surface(rows*cols*channels);
+	std::vector<ColorReal> tmp_surface;
+	std::vector<ColorReal> row_pattern;
+	std::vector<ColorReal> col_pattern;
 
 	Array<ColorReal, 3> arr_surface(&surface.front());
 	arr_surface
@@ -666,8 +665,8 @@ software::Blur::blur_iir(const Params &params)
 			for(Array<ColorReal, 3>::Iterator src_channel(arr_src_surface_rows), dst_channel(arr_dst_surface_rows); dst_channel; ++src_channel, ++dst_channel)
 				for(Array<ColorReal, 2>::Iterator sr(*src_channel), dr(*dst_channel); dr; ++sr, ++dr)
 					BlurTemplates::blur_pattern(*dr, *sr, arr_row_pattern);
-			swap(arr_src_surface_cols.pointer, arr_dst_surface_cols.pointer);
-			swap(arr_surface.pointer, arr_tmp_surface.pointer);
+			std::swap(arr_src_surface_cols.pointer, arr_dst_surface_cols.pointer);
+			std::swap(arr_surface.pointer, arr_tmp_surface.pointer);
 			arr_surface_cols.pointer = arr_surface.pointer;
 			memset(&surface.front(), 0, sizeof(surface.front())*surface.size());
 		}
@@ -686,7 +685,7 @@ software::Blur::blur_iir(const Params &params)
 			for(Array<ColorReal, 3>::Iterator src_channel(arr_src_surface_cols), dst_channel(arr_dst_surface_cols); dst_channel; ++src_channel, ++dst_channel)
 				for(Array<ColorReal, 2>::Iterator sr(*src_channel), dr(*dst_channel); dr; ++sr, ++dr)
 					BlurTemplates::blur_pattern(*dr, *sr, arr_col_pattern);
-			swap(arr_surface.pointer, arr_tmp_surface.pointer);
+			std::swap(arr_surface.pointer, arr_tmp_surface.pointer);
 		}
 		else
 		{

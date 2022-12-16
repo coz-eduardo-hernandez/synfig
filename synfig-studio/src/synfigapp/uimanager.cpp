@@ -41,7 +41,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace std;
 using namespace etl;
 using namespace synfig;
 using namespace synfigapp;
@@ -59,16 +58,16 @@ ConsoleUIInterface::confirmation(
 			Response dflt
 )
 {
-	cout << message.c_str() << endl;
-	cout << details.c_str();
+	std::cout << message.c_str() << std::endl;
+	std::cout << details.c_str();
 
 	if (dflt == RESPONSE_OK)
-		cout << "(" << confirm.c_str() << "/" << cancel.c_str() << ")" << endl;
+		std::cout << "(" << confirm.c_str() << "/" << cancel.c_str() << ")" << std::endl;
 	else
-		cout << "(" << cancel.c_str() << "/" << confirm.c_str() << ")" << endl;
+		std::cout << "(" << cancel.c_str() << "/" << confirm.c_str() << ")" << std::endl;
 
-	string resp;
-	cin >> resp;
+	std::string resp;
+	std::cin >> resp;
 
 	if (dflt == RESPONSE_OK)
 	{
@@ -93,13 +92,13 @@ ConsoleUIInterface::yes_no_cancel(
 			Response dflt
 )
 {
-	cout<<message.c_str()<<": "<<details.c_str()<<' ';
+	std::cout<<message.c_str()<<": "<<details.c_str()<<' ';
 	if(dflt==RESPONSE_NO)
-		cout<<_("(no/yes)")<<endl;
+		std::cout<<_("(no/yes)")<<std::endl;
 	else
-		cout<<_("(yes/no)")<<endl;
-	string resp;
-	cin>>resp;
+		std::cout<<_("(yes/no)")<<std::endl;
+	std::string resp;
+	std::cin>>resp;
 
 	if(dflt==RESPONSE_NO)
 	{
@@ -121,7 +120,7 @@ ConsoleUIInterface::yes_no_cancel(
 bool
 ConsoleUIInterface::task(const std::string &task)
 {
-	cout<<task.c_str()<<endl;
+	std::cout<<task.c_str()<<std::endl;
 	return true;
 }
 
@@ -129,7 +128,7 @@ ConsoleUIInterface::task(const std::string &task)
 bool
 ConsoleUIInterface::error(const std::string &task)
 {
-	cout<<_("error: ")<<task.c_str()<<endl;
+	std::cout<<_("error: ")<<task.c_str()<<std::endl;
 	return true;
 }
 
@@ -137,7 +136,7 @@ ConsoleUIInterface::error(const std::string &task)
 bool
 ConsoleUIInterface::warning(const std::string &task)
 {
-	cout<<_("warning: ")<<task.c_str()<<endl;
+	std::cout<<_("warning: ")<<task.c_str()<<std::endl;
 	return true;
 }
 

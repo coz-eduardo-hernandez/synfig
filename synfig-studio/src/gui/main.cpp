@@ -47,7 +47,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace std;
 using namespace etl;
 using namespace synfig;
 using namespace studio;
@@ -86,7 +85,7 @@ int main(int argc, char **argv)
 		freopen("NUL", "w", stdout);
 		freopen("NUL", "w", stderr);
 		freopen("NUL", "r", stdin);
-		ios::sync_with_stdio();
+		std::ios::sync_with_stdio();
 	}
 #endif
 
@@ -105,9 +104,9 @@ int main(int argc, char **argv)
 		SmartFILE file(IPC::make_connection());
 		if(file)
 		{
-			cout << endl;
-			cout << "   " << _("synfig studio is already running") << endl << endl;
-			cout << "   " << _("the existing process will be used") << endl << endl;
+			std::cout << std::endl;
+			std::cout << "   " << _("synfig studio is already running") << std::endl << std::endl;
+			std::cout << "   " << _("the existing process will be used") << std::endl << std::endl;
 
 			// Hey, another copy of us is open!
 			// don't bother opening us, just go ahead and
@@ -125,8 +124,8 @@ int main(int argc, char **argv)
 		}
 	}
 
-	cout << endl;
-	cout << "   " << _("synfig studio -- starting up application...") << endl << endl;
+	std::cout << std::endl;
+	std::cout << "   " << _("synfig studio -- starting up application...") << std::endl << std::endl;
 
 	SYNFIG_EXCEPTION_GUARD_BEGIN()
 	studio::App app(etl::dirname(binary_path), &argc, &argv);
