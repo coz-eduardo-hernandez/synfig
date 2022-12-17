@@ -2,24 +2,25 @@
 /*!	\file lineargradient.cpp
 **	\brief Implementation of the "Linear Gradient" layer
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2011-2013 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
-**	\endlegal
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
 **
-** === N O T E S ===========================================================
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
+**	\endlegal
 **
 ** ========================================================================= */
 
@@ -110,10 +111,14 @@ LinearGradient::calc_supersample(const Params &params, synfig::Real pw, synfig::
 synfig::Layer::Handle
 LinearGradient::hit_check(synfig::Context context, const synfig::Point &point)const
 {
+	bool check_myself_first;
+	auto layer = basic_hit_check(context, point, check_myself_first);
+
+	if (!check_myself_first)
+		return layer;
+
 	if(get_blend_method()==Color::BLEND_STRAIGHT && get_amount()>=0.5)
 		return const_cast<LinearGradient*>(this);
-	if(get_amount()==0.0)
-		return context.hit_check(point);
 
 	Params params;
 	fill_params(params);

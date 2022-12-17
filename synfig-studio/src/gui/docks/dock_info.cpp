@@ -2,21 +2,24 @@
 /*!	\file dock_info.cpp
 **	\brief Dock Info File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007 Chris Moore
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -41,7 +44,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 
 /* === M A C R O S ========================================================= */
@@ -91,7 +93,7 @@ void studio::Dock_Info::on_mouse_move()
 }
 
 studio::Dock_Info::Dock_Info()
-:Dock_CanvasSpecific("info",_("Info"),Gtk::StockID("synfig-info"))
+:Dock_CanvasSpecific("info",_("Info"),"info_icon")
 {
 	set_use_scrolled(false);
 
@@ -100,10 +102,10 @@ studio::Dock_Info::Dock_Info()
 
 	// X and Y position labels
 	Gtk::Label *x_label = manage(new Gtk::Label());
-	x_label->set_markup(etl::strprintf("<b>%s</b>", _("X: ")));
+	x_label->set_markup(synfig::strprintf("<b>%s</b>", _("X: ")));
 	x_label->set_hexpand(false);
 	Gtk::Label *y_label = manage(new Gtk::Label());
-	y_label->set_markup(etl::strprintf("<b>%s</b>", _("Y: ")));
+	y_label->set_markup(synfig::strprintf("<b>%s</b>", _("Y: ")));
 	y_label->set_hexpand(false);
 	grid->attach(*x_label, 0, 0, 1, 1);
 	grid->attach(*y_label, 0, 1, 1, 1);
@@ -121,16 +123,16 @@ studio::Dock_Info::Dock_Info()
 
 	// Color labels
 	Gtk::Label *r_label = manage(new Gtk::Label());
-	r_label->set_markup(etl::strprintf("<b>%s</b>", _("R: ")));
+	r_label->set_markup(synfig::strprintf("<b>%s</b>", _("R: ")));
 	r_label->set_hexpand(false);
 	Gtk::Label *g_label = manage(new Gtk::Label());
-	g_label->set_markup(etl::strprintf("<b>%s</b>", _("G: ")));
+	g_label->set_markup(synfig::strprintf("<b>%s</b>", _("G: ")));
 	g_label->set_hexpand(false);
 	Gtk::Label *b_label = manage(new Gtk::Label());
-	b_label->set_markup(etl::strprintf("<b>%s</b>", _("B: ")));
+	b_label->set_markup(synfig::strprintf("<b>%s</b>", _("B: ")));
 	b_label->set_hexpand(false);
 	Gtk::Label *a_label = manage(new Gtk::Label());
-	a_label->set_markup(etl::strprintf("<b>%s</b>", _("A: ")));
+	a_label->set_markup(synfig::strprintf("<b>%s</b>", _("A: ")));
 	a_label->set_hexpand(false);
 	grid->attach(*r_label, 3, 0, 1, 1);
 	grid->attach(*g_label, 3, 1, 1, 1);
@@ -159,7 +161,7 @@ studio::Dock_Info::Dock_Info()
 	Gtk::Label *render_progress_label = manage(new Gtk::Label());
 	Gtk::Overlay *overlay = manage(new Gtk::Overlay());
 
-	render_progress_label->set_markup(etl::strprintf("<b>%s</b>", _("Render Progress:")));
+	render_progress_label->set_markup(synfig::strprintf("<b>%s</b>", _("Render Progress:")));
 
 	// Render progress CSS ID
 	render_progress.set_name("render-progress");

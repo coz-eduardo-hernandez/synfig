@@ -2,22 +2,25 @@
 /*!	\file state_polygon.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **  Copyright (c) 2010 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -54,7 +57,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 using namespace studio;
 
@@ -63,12 +65,8 @@ using namespace studio;
 #define DISTINGUISH_FIRST_DUCK
 
 #ifndef LAYER_CREATION
-#define LAYER_CREATION(button, stockid, tooltip)	\
-	{ \
-		Gtk::Image *icon = manage(new Gtk::Image(Gtk::StockID(stockid), \
-			Gtk::ICON_SIZE_SMALL_TOOLBAR)); \
-		button.add(*icon); \
-	} \
+#define LAYER_CREATION(button, icon_name, tooltip)	\
+	button.set_image_from_icon_name(icon_name, Gtk::BuiltinIconSize::ICON_SIZE_SMALL_TOOLBAR); \
 	button.set_relief(Gtk::RELIEF_NONE); \
 	button.set_tooltip_text(tooltip) ;\
 	button.signal_toggled().connect(sigc::mem_fun(*this, \
@@ -274,81 +272,39 @@ StatePolygon_Context::load_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		String value;
+		set_id(settings.get_value("polygon.id", "Polygon"));
 
-		if(settings.get_value("polygon.id",value))
-			set_id(value);
-		else
-			set_id("Polygon");
+		set_blend(settings.get_value("polygon.blend", int(Color::BLEND_COMPOSITE)));
 
-		if(settings.get_value("polygon.blend",value) && value != "")
-			set_blend(atoi(value.c_str()));
-		else
-			set_blend(0);//(int)Color::BLEND_COMPOSITE); //0 should be blend composites value
+		set_opacity(settings.get_value("polygon.opacity", 1.0));
 
-		if(settings.get_value("polygon.opacity",value))
-			set_opacity(atof(value.c_str()));
-		else
-			set_opacity(1);
+		set_bline_width(settings.get_value("polygon.bline_width", Distance("1px")));
 
-		if(settings.get_value("polygon.bline_width",value) && value != "")
-			set_bline_width(Distance(atof(value.c_str()), App::distance_system));
-		else
-			set_bline_width(Distance(1, App::distance_system)); // default width
+		set_feather_size(settings.get_value("polygon.feather", Distance("0px")));
 
-		if(settings.get_value("polygon.feather",value))
-			set_feather_size(Distance(atof(value.c_str()), App::distance_system));
-		else
-			set_feather_size(Distance(0, App::distance_system)); // default feather
+		set_invert(settings.get_value("polygon.invert", false));
 
-		if(settings.get_value("polygon.invert",value) && value != "0")
-			set_invert(true);
-		else
-			set_invert(false);
+		set_layer_polygon_flag(settings.get_value("polygon.layer_polygon", true));
 
-		if(settings.get_value("polygon.layer_polygon",value) && value=="0")
-			set_layer_polygon_flag(false);
-		else
-			set_layer_polygon_flag(true);
+		set_layer_region_flag(settings.get_value("polygon.layer_region", false));
 
-		if(settings.get_value("polygon.layer_region",value) && value=="1")
-			set_layer_region_flag(true);
-		else
-			set_layer_region_flag(false);
+		set_layer_outline_flag(settings.get_value("polygon.layer_outline", false));
 
-		if(settings.get_value("polygon.layer_outline",value) && value=="1")
-			set_layer_outline_flag(true);
-		else
-			set_layer_outline_flag(false);
+		set_layer_advanced_outline_flag(settings.get_value("polygon.layer_advanced_outline", false));
 
-		if(settings.get_value("polygon.layer_advanced_outline",value) && value=="1")
-			set_layer_advanced_outline_flag(true);
-		else
-			set_layer_advanced_outline_flag(false);
+		set_layer_curve_gradient_flag(settings.get_value("polygon.layer_curve_gradient", false));
 
-		if(settings.get_value("polygon.layer_curve_gradient",value) && value=="1")
-			set_layer_curve_gradient_flag(true);
-		else
-			set_layer_curve_gradient_flag(false);
+		set_layer_plant_flag(settings.get_value("polygon.layer_plant", false));
 
-		if(settings.get_value("polygon.layer_plant",value) && value=="1")
-			set_layer_plant_flag(true);
-		else
-			set_layer_plant_flag(false);
+		set_layer_link_origins_flag(settings.get_value("polygon.layer_link_origins", true));
 
-		if(settings.get_value("polygon.layer_link_origins",value) && value=="0")
-			set_layer_link_origins_flag(false);
-		else
-			set_layer_link_origins_flag(true);
-
-	  // determine layer flags
+		// determine layer flags
 		layer_polygon_flag = get_layer_polygon_flag();
-	  layer_region_flag = get_layer_region_flag();
-	  layer_outline_flag = get_layer_outline_flag();
-	  layer_advanced_outline_flag = get_layer_outline_flag();
-	  layer_curve_gradient_flag = get_layer_curve_gradient_flag();
-	  layer_plant_flag = get_layer_plant_flag();
+		layer_region_flag = get_layer_region_flag();
+		layer_outline_flag = get_layer_outline_flag();
+		layer_advanced_outline_flag = get_layer_advanced_outline_flag();
+		layer_curve_gradient_flag = get_layer_curve_gradient_flag();
+		layer_plant_flag = get_layer_plant_flag();
 	}
 	catch(...)
 	{
@@ -361,20 +317,19 @@ StatePolygon_Context::save_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		settings.set_value("polygon.id",get_id().c_str());
-		settings.set_value("polygon.blend",strprintf("%d",get_blend()));
-		settings.set_value("polygon.opacity",strprintf("%f",(float)get_opacity()));
-		settings.set_value("polygon.bline_width", bline_width_dist.get_value().get_string());
-		settings.set_value("polygon.feather", feather_dist.get_value().get_string());
-		settings.set_value("polygon.invert",get_invert()?"1":"0");
-		settings.set_value("polygon.layer_polygon",get_layer_polygon_flag()?"1":"0");
-		settings.set_value("polygon.layer_outline",get_layer_outline_flag()?"1":"0");
-		settings.set_value("polygon.layer_advanced_outline",get_layer_advanced_outline_flag()?"1":"0");
-		settings.set_value("polygon.layer_region",get_layer_region_flag()?"1":"0");
-		settings.set_value("polygon.layer_curve_gradient",get_layer_curve_gradient_flag()?"1":"0");
-		settings.set_value("polygon.layer_plant",get_layer_plant_flag()?"1":"0");
-		settings.set_value("polygon.layer_link_origins",get_layer_link_origins_flag()?"1":"0");
+		settings.set_value("polygon.id",get_id());
+		settings.set_value("polygon.blend",get_blend());
+		settings.set_value("polygon.opacity",get_opacity());
+		settings.set_value("polygon.bline_width", bline_width_dist.get_value());
+		settings.set_value("polygon.feather", feather_dist.get_value());
+		settings.set_value("polygon.invert",get_invert());
+		settings.set_value("polygon.layer_polygon",get_layer_polygon_flag());
+		settings.set_value("polygon.layer_outline",get_layer_outline_flag());
+		settings.set_value("polygon.layer_advanced_outline",get_layer_advanced_outline_flag());
+		settings.set_value("polygon.layer_region",get_layer_region_flag());
+		settings.set_value("polygon.layer_curve_gradient",get_layer_curve_gradient_flag());
+		settings.set_value("polygon.layer_plant",get_layer_plant_flag());
+		settings.set_value("polygon.layer_link_origins",get_layer_link_origins_flag());
 	}
 	catch(...)
 	{
@@ -466,17 +421,17 @@ StatePolygon_Context::StatePolygon_Context(CanvasView* canvas_view):
 	layer_types_label.set_valign(Gtk::ALIGN_CENTER);
 
 	LAYER_CREATION(layer_polygon_togglebutton,
-		("synfig-layer_geometry_polygon"), _("Create a polygon layer"));
+		"layer_geometry_polygon_icon", _("Create a polygon layer"));
 	LAYER_CREATION(layer_region_togglebutton,
-		("synfig-layer_geometry_region"), _("Create a region layer"));
+		"layer_geometry_region_icon", _("Create a region layer"));
 	LAYER_CREATION(layer_outline_togglebutton,
-		("synfig-layer_geometry_outline"), _("Create an outline layer"));
+		"layer_geometry_outline_icon", _("Create an outline layer"));
 	LAYER_CREATION(layer_advanced_outline_togglebutton,
-		("synfig-layer_geometry_advanced_outline"), _("Create an advanced outline layer"));
+		"layer_geometry_advanced_outline_icon", _("Create an advanced outline layer"));
 	LAYER_CREATION(layer_plant_togglebutton,
-		("synfig-layer_other_plant"), _("Create a plant layer"));
+		"layer_other_plant_icon", _("Create a plant layer"));
 	LAYER_CREATION(layer_curve_gradient_togglebutton,
-		("synfig-layer_gradient_curve"), _("Create a gradient layer"));
+		"layer_gradient_curve_icon", _("Create a gradient layer"));
 
 	layer_polygon_togglebutton.get_style_context()->add_class("indentation");
 
@@ -608,10 +563,10 @@ StatePolygon_Context::refresh_tool_options()
 	App::dialog_tool_options->set_widget(options_grid);
 
 	App::dialog_tool_options->set_local_name(_("Polygon Tool"));
-	App::dialog_tool_options->set_name("polygon");
+	App::dialog_tool_options->set_icon("tool_polyline_icon");
 
 	App::dialog_tool_options->add_button(
-		Gtk::StockID("gtk-execute"),
+		"system-run",
 		_("Make Polygon")
 	)->signal_clicked().connect(
 		sigc::mem_fun(
@@ -621,7 +576,7 @@ StatePolygon_Context::refresh_tool_options()
 	);
 
 	App::dialog_tool_options->add_button(
-		Gtk::StockID("gtk-clear"),
+		"edit-clear",
 		_("Clear current Polygon")
 	)->signal_clicked().connect(
 		sigc::mem_fun(

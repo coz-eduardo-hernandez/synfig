@@ -2,9 +2,8 @@
 /*!	\file svg_parser.cpp
 **	\brief Implementation of the Svg parser
 **	\brief Based on SVG XML specification 1.1
-**	\brief See: http://www.w3.org/TR/xml11/ for deatils
+**	\brief See: http://www.w3.org/TR/xml11/ for details
 **
-**	$Id:$
 **
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
@@ -12,15 +11,20 @@
 **	Copyright (c) 2009 Carlos A. Sosa Navarro
 **	Copyright (c) 2009 Nikita Kitaev
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -36,6 +40,7 @@
 
 #include <cstring>
 
+#include <synfig/valuenodes/valuenode_bline.h>
 #include <synfig/general.h>
 #include <synfig/loadcanvas.h>
 #include <synfig/localization.h>
@@ -71,7 +76,6 @@ static int getColor(const String& name, int position);
 static double getDimension(const String& ac, bool use_90_ppi = false);
 static float getRadian(float sexa);
 //string functions
-static void removeIntoS(String& input);
 static std::vector<String> tokenize(const String& str,const String& delimiters);
 
 static float get_inkscape_version(const xmlpp::Element* svgNodeElement);
@@ -94,15 +98,15 @@ synfig::open_svg(std::string _filepath, String &errors, String &warnings)
 }
 
 Canvas::Handle
-Svg_parser::load_svg_canvas(std::string _filepath, String &errors, String &warnings)
+Svg_parser::load_svg_canvas(const std::string& filepath, String &errors, String &warnings)
 {
 	ChangeLocale locale(LC_NUMERIC, "C");
 
-	filepath = _filepath;
 	#ifdef LIBXMLCPP_EXCEPTIONS_ENABLED
   	try{
   	#endif //LIBXMLCPP_EXCEPTIONS_ENABLED
 		//load parser
+		xmlpp::DomParser parser;
 		parser.set_substitute_entities();
 		parser.parse_file(filepath);
 		//set_id(filepath);
@@ -125,10 +129,9 @@ Svg_parser::load_svg_canvas(std::string _filepath, String &errors, String &warni
 
 Svg_parser::Svg_parser(const Gamma &gamma):
 	gamma(gamma),
-	nodeRoot(NULL),
+	nodeRoot(nullptr),
 	width(0),
 	height(0),
-	uid(0),
 	kux(60),
 	set_canvas(false), //we must run parser_canvas method
 	ox(0),
@@ -207,7 +210,6 @@ Svg_parser::parser_svg(const xmlpp::Node* node)
 
 		width = getDimension(nodeElement->get_attribute_value("width"), inkscape_version < 0.92f && approximate_not_zero(inkscape_version));
 		height = getDimension(nodeElement->get_attribute_value("height"), inkscape_version < 0.92f && approximate_not_zero(inkscape_version));
-		docname=nodeElement->get_attribute_value("docname","");
 	}
 }
 
@@ -241,8 +243,8 @@ Svg_parser::parser_canvas(const xmlpp::Node* node)
 		//build
 		nodeRoot=document.create_root_node("canvas", "", "");
 		nodeRoot->set_attribute("version","0.5");
-		nodeRoot->set_attribute("width",etl::strprintf("%lf", width));
-		nodeRoot->set_attribute("height",etl::strprintf("%lf", height));
+		nodeRoot->set_attribute("width",strprintf("%lf", width));
+		nodeRoot->set_attribute("height",strprintf("%lf", height));
 		nodeRoot->set_attribute("xres","2834.645752");
 		nodeRoot->set_attribute("yres","2834.645752");
 		double view_x = width/kux;
@@ -269,184 +271,428 @@ void
 Svg_parser::parser_graphics(const xmlpp::Node* node, xmlpp::Element* root, Style style, const SVGMatrix& mtx_parent)
 {
 	if(const xmlpp::Element* nodeElement = dynamic_cast<const xmlpp::Element*>(node)){
-		Glib::ustring nodename = node->get_name();
-		if (nodename.compare("g")==0 || nodename.compare("path")==0 || nodename.compare("polygon")==0 || nodename.compare("rect")==0){} else return;
+		const Glib::ustring nodename = node->get_name();
 
-		enum FillType {FILL_TYPE_NONE, FILL_TYPE_SIMPLE, FILL_TYPE_GRADIENT};
+		// Is element known ?
+		const std::vector<const char*> valid_elements = {"g", "path", "polygon", "rect", "circle", "ellipse", "line", "polyline"};
+		if (valid_elements.end() == std::find(valid_elements.begin(), valid_elements.end(), nodename))
+			return;
 
-		//load sub-attributes
-		Glib::ustring id			=nodeElement->get_attribute_value("id");
-		Glib::ustring transform	=nodeElement->get_attribute_value("transform");
-
-		//resolve transformations
+		// Resolve transformations
 		SVGMatrix mtx;
-		if(!transform.empty())
-			mtx.parser_transform(transform);
-		if (SVG_SEP_TRANSFORMS)
 		{
-			mtx.compose(mtx_parent, mtx);
+			Glib::ustring transform	= nodeElement->get_attribute_value("transform");
+			if(!transform.empty())
+				mtx.parser_transform(transform);
+			if (SVG_SEP_TRANSFORMS)
+				mtx.compose(mtx_parent, mtx);
 		}
+
+		// Resolve styles
+		style.merge(nodeElement);
+
+		// Is it a group element?
 		if(nodename.compare("g")==0){
 			parser_layer(node,root->add_child("layer"),style,mtx);
 			return;
 		}
 
-		style.merge(nodeElement);
+		// Shape elements
+
+		enum FillType {FILL_TYPE_NONE, FILL_TYPE_SIMPLE, FILL_TYPE_GRADIENT};
+
+		//load sub-attributes
+		Glib::ustring id  = nodeElement->get_attribute_value("id");
 
 		//style
-		String fill			    = style.get("fill", "none");
-		String fill_rule		= style.get("fill-rule", "evenodd");
-		String stroke			= style.get("stroke", "none");
-		String stroke_width		= style.get("stroke-width", "1px");
-		String stroke_linecap	= style.get("stroke-linecap", "butt");
-		String stroke_linejoin	= style.get("stroke-linejoin", "miter");
-		String stroke_opacity	= style.get("stroke-opacity", "1");
-		String fill_opacity		= style.get("fill-opacity", "1");
-		String opacity			= style.get("opacity", "1");
+		String fill       = style.get("fill", "#000");
+		String stroke     = style.get("stroke", "none");
 
 		//Fill
 		FillType typeFill = FILL_TYPE_NONE;
 
+		if (nodename.compare("line") == 0)
+			fill = "none";
+
 		if(fill.compare("none")!=0){
 			typeFill = FILL_TYPE_SIMPLE;
+
+			if(fill.compare(0,3,"url")==0)
+				typeFill = FILL_TYPE_GRADIENT;
 		}
-		if(typeFill==FILL_TYPE_SIMPLE && fill.compare(0,3,"url")==0){
-			typeFill = FILL_TYPE_GRADIENT;
-		}
+
 		//Stroke
 		int typeStroke = FILL_TYPE_NONE;
 
 		if(stroke.compare("none")!=0){
 			typeStroke = FILL_TYPE_SIMPLE;
-		}
-		if(typeStroke==FILL_TYPE_SIMPLE && stroke.compare(0,3,"url")==0){
-			typeStroke = FILL_TYPE_GRADIENT;
-		}
-		
-		xmlpp::Element* child_layer = root;
-		xmlpp::Element* child_fill;
-		xmlpp::Element* child_stroke;
 
-		//make simple fills
-		if(nodename.compare("rect")==0 && typeFill!=FILL_TYPE_NONE){
-			if (!mtx.is_identity())
-				child_layer = nodeStartBasicLayer(root->add_child("layer"), id);
-			child_fill=child_layer;
-			parser_rect(nodeElement,child_fill,style);
-			if(typeFill == FILL_TYPE_GRADIENT){
-				build_fill (child_fill,fill,SVGMatrix::identity);
-			}
-			parser_effects(nodeElement,child_layer,style,mtx);
-			return;
+			if (stroke.compare(0,3,"url")==0)
+				typeStroke = FILL_TYPE_GRADIENT;
 		}
-		if ((!SVG_RESOLVE_BLINE) || typeFill == FILL_TYPE_GRADIENT || typeStroke == FILL_TYPE_GRADIENT)
-			child_layer = nodeStartBasicLayer(root->add_child("layer"), id);
+
+		// What?
+		if (typeFill == FILL_TYPE_NONE && typeStroke == FILL_TYPE_NONE)
+			return;
+
+		xmlpp::Element* child_layer = root;
+		xmlpp::Element* child_fill = nullptr;
+		xmlpp::Element* child_stroke = nullptr;
+
+		// Only fill and a simple geometric shape? Render as Synfig primitive.
+		// If it has stroke, render as a region, instead of standard shape, to be able to link to outline
+		if(typeFill != FILL_TYPE_NONE && typeStroke == FILL_TYPE_NONE) {
+			if (nodename.compare("rect") == 0 || nodename.compare("circle") == 0) {
+				if (!mtx.is_identity())
+					child_layer = initializeGroupLayerNode(root->add_child("layer"), id);
+				child_fill=child_layer;
+
+				if (nodename.compare("rect") == 0)
+					parser_rect(nodeElement,child_fill,style);
+				else if (nodename.compare("circle") == 0)
+					parser_circle(nodeElement,child_fill,style);
+
+				if(typeFill == FILL_TYPE_GRADIENT){
+					build_fill (child_fill,fill,SVGMatrix::identity);
+				}
+				parser_effects(nodeElement,child_layer,style,mtx);
+				return;
+			}
+		}
+
+		// We will create a non-primitive shape
+
+		if (!SVG_RESOLVE_BLINE)
+			child_layer = initializeGroupLayerNode(root->add_child("layer"), id);
 		child_fill=child_layer;
 		child_stroke=child_layer;
 
-		//=======================================================================
-
+		// bline list
 		std::list<BLine> k;
-		//if we are creating a bline
+		// transformation matrix for bline vertices
+		const SVGMatrix& bline_matrix = SVG_RESOLVE_BLINE ? mtx : SVGMatrix::identity;
 
-		//First, create the list of Verteces
-		if (SVG_RESOLVE_BLINE) {
-			if(nodename.compare("path")==0){
-				k = parser_path_d(nodeElement->get_attribute_value("d"),mtx);
-			} else if(nodename.compare("polygon")==0){
-				k = parser_path_polygon(nodeElement->get_attribute_value("points"),mtx);
-			}
-		} else {
-			if(nodename.compare("path")==0){
-				k = parser_path_d(nodeElement->get_attribute_value("d"),SVGMatrix::identity);
-			} else if(nodename.compare("polygon")==0){
-				k = parser_path_polygon(nodeElement->get_attribute_value("points"),SVGMatrix::identity);
-			}
-		}
-		
-		if(typeFill!=FILL_TYPE_NONE){//region layer
-			/*if(typeFill==FILL_TYPE_GRADIENT){
-				child_fill=nodeStartBasicLayer(child_fill->add_child("layer"));
-			}*/
-			for (const BLine& bline : k) {
-				xmlpp::Element *child_region=child_fill->add_child("layer");
-				child_region->set_attribute("type","region");
-				child_region->set_attribute("active","true");
-				child_region->set_attribute("version","0.1");
-				child_region->set_attribute("desc",id);
-				build_param (child_region->add_child("param"),"z_depth","real","0.0000000000");
-				build_param (child_region->add_child("param"),"amount","real","1.0000000000");
-				build_param (child_region->add_child("param"),"blend_method","integer","0");
-				build_color (child_region->add_child("param"),getRed(fill),getGreen(fill),getBlue(fill),atof(fill_opacity.data())*atof(opacity.data()));
-				build_vector (child_region->add_child("param"),"offset",0,0, bline.offset_id );
-				build_param (child_region->add_child("param"),"invert","bool","false");
-				build_param (child_region->add_child("param"),"antialias","bool","true");
-				build_param (child_region->add_child("param"),"feather","real","0.0000000000");
-				build_param (child_region->add_child("param"),"blurtype","integer","1");
-				if(fill_rule.compare("evenodd")==0) build_param (child_region->add_child("param"),"winding_style","integer","1");
-				else build_param (child_region->add_child("param"),"winding_style","integer","0");
+		//First, create the list of vertices
+		if(nodename.compare("path")==0)
+			k = parser_path_d(nodeElement->get_attribute_value("d"), bline_matrix);
+		else if(nodename.compare("polygon")==0)
+			k = parser_path_polygon(nodeElement->get_attribute_value("points"), bline_matrix);
+		else if(nodename.compare("rect")==0)
+			k = parser_path_rect(nodeElement, style, mtx);
+		else if(nodename.compare("circle")==0)
+			k = parser_path_circle(nodeElement, style, mtx);
+		else if(nodename.compare("ellipse")==0)
+			k = parser_path_ellipse(nodeElement, style, mtx);
+		else if(nodename.compare("line")==0)
+			k = parser_line(nodeElement, mtx);
+		else if(nodename.compare("polyline")==0)
+			k = parser_polyline(nodeElement, mtx);
 
-				build_bline(child_region->add_child("param"), bline.points, bline.loop, bline.bline_id);
-			}
-		}
-		if(typeFill==FILL_TYPE_GRADIENT){ //gradient in onto mode (fill)
-			if (SVG_RESOLVE_BLINE)
-				build_fill(child_fill,fill,mtx);
-			else
-				build_fill(child_fill,fill,SVGMatrix::identity);
-		}
+		if (k.empty())
+			return;
 
-		if(typeStroke!=FILL_TYPE_NONE){//outline layer
+		// Region layer
+		auto build_region_func = [&]() {
+			if (typeFill == FILL_TYPE_NONE)
+				return;
+
+			if(typeFill==FILL_TYPE_GRADIENT){
+				child_fill=initializeGroupLayerNode(child_fill->add_child("layer"),"fill");
+			}
+
+			build_region(child_fill, style, k, id);
+
+			if(typeFill==FILL_TYPE_GRADIENT){ //gradient in onto mode (fill)
+				build_fill(child_fill, fill, bline_matrix);
+			}
+		};
+
+		// Outline layer
+		auto build_outline_func = [&]() {
+			if (typeStroke == FILL_TYPE_NONE)
+				return;
+
 			if(typeStroke==FILL_TYPE_GRADIENT){
-				child_stroke=nodeStartBasicLayer(child_stroke->add_child("layer"),"stroke");
+				child_stroke=initializeGroupLayerNode(child_stroke->add_child("layer"),"stroke");
 			}
-			for (const BLine& bline : k) {
-				xmlpp::Element *child_outline=child_stroke->add_child("layer");
-				child_outline->set_attribute("type","outline");
-				child_outline->set_attribute("active","true");
-				child_outline->set_attribute("version","0.3");
-				child_outline->set_attribute("desc",id);
-				build_param (child_outline->add_child("param"),"z_depth","real","0.0000000000");
-				build_param (child_outline->add_child("param"),"amount","real","1.0000000000");
-				build_param (child_outline->add_child("param"),"blend_method","integer","0");
-				build_color (child_outline->add_child("param"),getRed(stroke),getGreen(stroke),getBlue(stroke),atof(stroke_opacity.data())*atof(opacity.data()));
-				build_vector (child_outline->add_child("param"),"offset",0,0,bline.offset_id);
-				build_param (child_outline->add_child("param"),"invert","bool","false");
-				build_param (child_outline->add_child("param"),"antialias","bool","true");
-				build_param (child_outline->add_child("param"),"feather","real","0.0000000000");
-				build_param (child_outline->add_child("param"),"blurtype","integer","1");
-				//outline in nonzero
-				build_param (child_outline->add_child("param"),"winding_style","integer","0");
 
-				build_bline(child_outline->add_child("param"), bline.points, bline.loop, bline.bline_id);
-
-				stroke_width=etl::strprintf("%f",getDimension(stroke_width)/kux); // this shouldn't use units
-				build_param (child_outline->add_child("param"),"width","real",stroke_width);
-				build_param (child_outline->add_child("param"),"expand","real","0.0000000000");
-				if(stroke_linejoin.compare("miter")==0) build_param (child_outline->add_child("param"),"sharp_cusps","bool","true");
-				else build_param (child_outline->add_child("param"),"sharp_cusps","bool","false");
-				if(stroke_linecap.compare("butt")==0){
-					build_param (child_outline->add_child("param"),"round_tip[0]","bool","false");
-					build_param (child_outline->add_child("param"),"round_tip[1]","bool","false");
-				}else{
-					build_param (child_outline->add_child("param"),"round_tip[0]","bool","true");
-					build_param (child_outline->add_child("param"),"round_tip[1]","bool","true");
-				}
-				build_param (child_outline->add_child("param"),"homogeneous_width","bool","true");
-			}
+			build_outline(child_stroke, style, k, id, bline_matrix);
 
 			if(typeStroke==FILL_TYPE_GRADIENT){ //gradient in onto mode (stroke)
-				if (SVG_RESOLVE_BLINE)
-					build_fill(child_stroke,stroke,mtx);
-				else
-					build_fill(child_stroke,stroke,SVGMatrix::identity);
-			}	
+				build_fill(child_stroke, stroke, bline_matrix);
+			}
+		};
+
+		bool fill_under_stroke = true;
+		if (typeFill != FILL_TYPE_NONE && typeStroke != FILL_TYPE_NONE) {
+			std::vector<std::string> paint_order_tokens = {"fill", "stroke", "markers"};
+			std::string paint_order_str = style.get("paint-order", "normal");
+			if (paint_order_str != "normal")
+				paint_order_tokens = tokenize(paint_order_str, ", \x09\x0a\x0d");
+
+			// if any element is missing they are appended at end in the default order after the specified ones
+			auto fill_iter = std::find(paint_order_tokens.begin(), paint_order_tokens.end(), "fill");
+			auto stroke_iter = std::find(paint_order_tokens.begin(), paint_order_tokens.end(), "stroke");
+//			auto markers_iter = std::find(paint_order_tokens.begin(), paint_order_tokens.end(), "markers");
+
+			fill_under_stroke = (fill_iter == paint_order_tokens.end() && stroke_iter == paint_order_tokens.end()) || fill_iter < stroke_iter;
+		}
+
+		if (fill_under_stroke) {
+			build_region_func();
+			build_outline_func();
+		} else {
+			build_outline_func();
+			build_region_func();
 		}
 
 		if (SVG_RESOLVE_BLINE)
 			parser_effects(nodeElement,child_layer,style,SVGMatrix::identity);
 		else
 			parser_effects(nodeElement,child_layer,style,mtx);
+	}
+}
+
+bool
+Svg_parser::parser_rxry_property(const Style& style, double width_reference, double height_reference, double &rx, double &ry)
+{
+	rx = 0.;
+	ry = 0.;
+
+	String rx_str = style.get("rx", "auto");
+	String ry_str = style.get("ry", "auto");
+
+	if (rx_str != "auto" || ry_str != "auto") {
+
+		if (rx_str != "auto" && !rx_str.empty()) {
+			rx = std::stod(rx_str);
+			if (rx < 0) {
+				synfig::error("SVG Parser: Invalid rx value: it cannot be negative!");
+				return false;
+			}
+			if (rx_str.back() == '%')
+				rx *= 0.01 * width_reference;
+		}
+
+		if (ry_str == "auto") {
+			ry = rx;
+		} else if (!ry_str.empty()){
+			ry = std::stod(ry_str);
+			if (ry < 0) {
+				synfig::error("SVG Parser: Invalid ry value: it cannot be negative!");
+				return false;
+			}
+			if (ry_str.back() == '%')
+				ry *= 0.01 * height_reference;
+		}
+
+		if (rx_str == "auto") {
+			rx = ry;
+		}
+	}
+	return true;
+}
+
+
+void
+Svg_parser::build_region(xmlpp::Node* root, Style style, const std::list<BLine>& k, const String& desc)
+{
+	String fill          = style.get("fill", "none");
+	String fill_rule     = style.get("fill-rule", "evenodd");
+	String fill_opacity  = style.get("fill-opacity", "1");
+	String opacity       = style.get("opacity", "1");
+
+	for (const BLine& bline : k) {
+		xmlpp::Element *child_region=root->add_child("layer");
+		child_region->set_attribute("type","region");
+		child_region->set_attribute("active","true");
+		child_region->set_attribute("version","0.1");
+		child_region->set_attribute("desc",desc);
+		build_param (child_region->add_child("param"),"z_depth","real","0.0000000000");
+		build_param (child_region->add_child("param"),"amount","real","1.0000000000");
+		build_param (child_region->add_child("param"),"blend_method","integer","0");
+		build_color (child_region->add_child("param"),getRed(fill),getGreen(fill),getBlue(fill),atof(fill_opacity.data())*atof(opacity.data()));
+		build_vector (child_region->add_child("param"),"offset",0,0, bline.offset_id );
+		build_param (child_region->add_child("param"),"invert","bool","false");
+		build_param (child_region->add_child("param"),"antialias","bool","true");
+		build_param (child_region->add_child("param"),"feather","real","0.0000000000");
+		build_param (child_region->add_child("param"),"blurtype","integer","1");
+		if(fill_rule.compare("evenodd")==0) build_param (child_region->add_child("param"),"winding_style","integer","1");
+		else build_param (child_region->add_child("param"),"winding_style","integer","0");
+
+		build_bline(child_region->add_child("param"), bline.points, bline.loop, bline.bline_id);
+	}
+}
+
+void
+Svg_parser::build_outline(xmlpp::Node* root, Style style, const std::list<BLine>& k, const String& desc, const SVGMatrix& mtx)
+{
+	String stroke           = style.get("stroke", "none");
+	String stroke_width     = style.get("stroke-width", "1px");
+	String stroke_linecap   = style.get("stroke-linecap", "butt");
+	String stroke_linejoin  = style.get("stroke-linejoin", "miter");
+	String stroke_dasharray = style.get("stroke-dasharray", "none");
+	String stroke_dashoffset= style.get("stroke-dashoffset", "0");
+	String stroke_opacity   = style.get("stroke-opacity", "1");
+	String opacity          = style.get("opacity", "1");
+
+	const float scale_factor = sqrt(mtx.a*mtx.a + mtx.b*mtx.b);
+	stroke_width=strprintf("%f",getDimension(stroke_width)/kux * scale_factor);
+
+	const float total_opacity = atof(stroke_opacity.data())*atof(opacity.data());
+
+	const bool is_advanced_outline = stroke_linecap == "square" || stroke_linejoin == "bevel" || stroke_dasharray != "none";
+
+	auto create_layer_node_with_common_info = [=] (const BLine& bline) -> xmlpp::Element*
+	{
+		xmlpp::Element *child_outline=root->add_child("layer");
+		child_outline->set_attribute("active","true");
+		child_outline->set_attribute("version","0.3");
+		child_outline->set_attribute("desc",desc);
+		build_param (child_outline->add_child("param"),"z_depth","real","0.0000000000");
+		build_param (child_outline->add_child("param"),"amount","real","1.0000000000");
+		build_param (child_outline->add_child("param"),"blend_method","integer","0");
+		build_color (child_outline->add_child("param"),getRed(stroke),getGreen(stroke),getBlue(stroke),total_opacity);
+		build_vector (child_outline->add_child("param"),"origin",0,0,bline.offset_id);
+		build_param (child_outline->add_child("param"),"invert","bool","false");
+		build_param (child_outline->add_child("param"),"antialias","bool","true");
+		build_param (child_outline->add_child("param"),"feather","real","0.0000000000");
+		build_param (child_outline->add_child("param"),"blurtype","integer","1");
+		//outline in nonzero
+		build_param (child_outline->add_child("param"),"winding_style","integer","0");
+
+		build_bline(child_outline->add_child("param"), bline.points, bline.loop, bline.bline_id);
+
+		build_param (child_outline->add_child("param"),"width","real",stroke_width);
+		build_param (child_outline->add_child("param"),"expand","real","0.0000000000");
+		return child_outline;
+	};
+	if (!is_advanced_outline) {
+		for (const BLine& bline : k) {
+			xmlpp::Element *child_outline = create_layer_node_with_common_info(bline);
+			child_outline->set_attribute("type","outline");
+			if(stroke_linejoin.compare("miter")==0) build_param (child_outline->add_child("param"),"sharp_cusps","bool","true");
+			else build_param (child_outline->add_child("param"),"sharp_cusps","bool","false");
+			if(stroke_linecap.compare("butt")==0){
+				build_param (child_outline->add_child("param"),"round_tip[0]","bool","false");
+				build_param (child_outline->add_child("param"),"round_tip[1]","bool","false");
+			}else{
+				build_param (child_outline->add_child("param"),"round_tip[0]","bool","true");
+				build_param (child_outline->add_child("param"),"round_tip[1]","bool","true");
+			}
+			build_param (child_outline->add_child("param"),"homogeneous_width","bool","true");
+		}
+	} else {
+		const std::map<std::string, int> linejoin_map = {
+			{"miter", 0}, // Advanced_Outline::CuspType::TYPE_SHARP
+			{"round", 1}, // Advanced_Outline::CuspType::TYPE_ROUNDED
+			{"bevel", 2}, // Advanced_Outline::CuspType::TYPE_BEVEL
+			{"arcs", 0},       // not equivalent
+			{"miter-clip", 0}, // not equivalent
+		};
+		const std::map<std::string, int> linecap_map = {
+			{"round", 1}, // WidthPoint::TYPE_ROUNDED
+			{"square", 2},// WidthPoint::TYPE_SQUARED
+			{"butt", 4}   // WidthPoint::TYPE_FLAT
+		};
+		int linejoin_value = linejoin_map.at("miter");
+		{
+			auto iter = linejoin_map.find(stroke_linejoin);
+			if (iter != linejoin_map.end())
+				linejoin_value = iter->second;
+		}
+		int linecap_value = linecap_map.at("butt");
+		{
+			auto iter = linecap_map.find(stroke_linecap);
+			if (iter != linecap_map.end())
+				linecap_value = iter->second;
+		}
+
+		float path_length = 0.f;
+		if (!k.empty())
+		{
+			std::vector<synfig::BLinePoint> v;
+			for (const auto& point : k.front().points) {
+				v.push_back(BLinePoint());
+				v.back().set_vertex(synfig::Point(point.x, point.y));
+				v.back().set_tangent1(synfig::Point(point.radius1, point.angle1));
+				v.back().set_tangent2(synfig::Point(point.radius2, point.angle2));
+				v.back().set_split_tangent_angle(point.split_angle);
+				v.back().set_split_tangent_radius(point.split_radius);
+			}
+
+			path_length = scale_factor * bline_length(v, k.front().loop, nullptr);
+		}
+
+		std::vector<float> dashes;
+
+		float dash_sum = 0.f;
+		for (String token : tokenize(stroke_dasharray, " ,\x09\x0a\x0d"))
+		{
+			if (token.empty())
+				continue;
+
+			float value = atof(token.c_str());
+			if (value < 0.f) {
+				// According to 13.5.6 of SVG2 specs, it leads to invalidate the dasharray
+				// Section 11.4 of SVG 1.1 specs says it is an 'error'.
+				// I'll follow SVG 2
+				dashes.clear();
+				break;
+			}
+
+			value *= scale_factor;
+
+			// parse '%'
+			// How to get pathLength attribute of <path> ?
+			if (token.back() == '%') {
+				value *= 0.01f * path_length;
+			}
+
+			dash_sum += value;
+			dashes.push_back(value);
+		}
+
+		if (approximate_zero(dash_sum)) {
+			// 'If all of the values in the list are zero, then the stroke is rendered as a solid line without any dashing.'
+			dashes.clear();
+		}
+
+		if (dashes.size() % 2 == 1) {
+			// 'If the list has an odd number of values, then it is repeated to yield an even number of values'
+			dashes.insert(dashes.end(), dashes.begin(), dashes.end());
+		}
+
+		float dash_offset = atof(stroke_dashoffset.c_str());
+		if (stroke_dashoffset.back() == '%') {
+			// How to get pathLength attribute of <path> ?
+			dash_offset *= 0.01f * path_length;
+		}
+		if (dash_offset < 0.f) {
+			dash_offset = dash_sum - std::fabs(dash_offset);
+		}
+		dash_offset = std::fmod(dash_offset, dash_sum);
+		if (stroke_dashoffset.back() != '%') {
+			dash_offset /= kux;
+		}
+
+		for (const BLine& bline : k) {
+			xmlpp::Element *child_outline = create_layer_node_with_common_info(bline);
+			child_outline->set_attribute("type","advanced_outline");
+			build_param (child_outline->add_child("param"),"cusp_type","integer",linejoin_value);
+			build_param (child_outline->add_child("param"),"start_tip","integer",linecap_value);
+			build_param (child_outline->add_child("param"),"end_tip","integer",linecap_value);
+
+			// dash
+
+			build_param (child_outline->add_child("param"),"dash_enabled","bool", dashes.empty() ? "false" : "true");
+			if (!dashes.empty()) {
+				build_dilist( child_outline->add_child("param"), dashes, linecap_value);
+			}
+			build_param (child_outline->add_child("param"),"dash_offset","real", dash_offset);
+
+			build_param (child_outline->add_child("param"),"homogeneous","bool","true");
+		}
 	}
 }
 
@@ -493,12 +739,15 @@ Svg_parser::parser_layer(const xmlpp::Node* node, xmlpp::Element* root, Style st
 void
 Svg_parser::parser_rect(const xmlpp::Element* nodeElement,xmlpp::Element* root, const Style& style)
 {
-	Glib::ustring rect_id		=nodeElement->get_attribute_value("id");
-	Glib::ustring rect_x		=nodeElement->get_attribute_value("x");
-	Glib::ustring rect_y		=nodeElement->get_attribute_value("y");
-	Glib::ustring rect_width	=nodeElement->get_attribute_value("width");
-	Glib::ustring rect_height	=nodeElement->get_attribute_value("height");
-	Glib::ustring fill       	= style.get("fill", "#000");
+	Glib::ustring rect_id = nodeElement->get_attribute_value("id");
+	double rect_x         = style.compute("x", "0");
+	double rect_y         = style.compute("y", "0");
+	double rect_width     = style.compute("width", "0");
+	double rect_height    = style.compute("height", "0");
+
+	Glib::ustring fill    = style.get("fill", "#000");
+	float fill_opacity    = style.compute("fill_opacity", "1");
+	float opacity         = style.compute("opacity", "1");
 
 	xmlpp::Element *child_rect=root->add_child("layer");
 	child_rect->set_attribute("type","rectangle");
@@ -509,21 +758,51 @@ Svg_parser::parser_rect(const xmlpp::Element* nodeElement,xmlpp::Element* root, 
 	build_real(child_rect->add_child("param"),"z_depth",0.0);
 	build_real(child_rect->add_child("param"),"amount",1.0);
 	build_integer(child_rect->add_child("param"),"blend_method",0);
-	build_color(child_rect->add_child("param"),getRed(fill),getGreen(fill),getBlue(fill),style.compute("opacity", "1")*style.compute("fill_opacity", "1"));
+	build_color(child_rect->add_child("param"),getRed(fill),getGreen(fill),getBlue(fill),opacity*fill_opacity);
 
-	float auxx=atof(rect_x.c_str());
-	float auxy=atof(rect_y.c_str());
+	float auxx=rect_x;
+	float auxy=rect_y;
 	coor2vect(&auxx,&auxy);
 	build_vector (child_rect->add_child("param"),"point1",auxx,auxy);
-	auxx= atof(rect_x.c_str()) + atof(rect_width.c_str());
-	auxy= atof(rect_y.c_str()) + atof(rect_height.c_str());
+	auxx= rect_x + rect_width;
+	auxy= rect_y + rect_height;
 	coor2vect(&auxx,&auxy);
 	build_vector (child_rect->add_child("param"),"point2",auxx,auxy);
-
-
 }
 
-/* === CONVERT TO PATH PARSERS ============================================= */       
+void
+Svg_parser::parser_circle(const xmlpp::Element* nodeElement, xmlpp::Element* root, const Style& style)
+{
+	Glib::ustring circle_id = nodeElement->get_attribute_value("id");
+	float circle_x      = style.compute("cx", "0", style.compute("width", "0"));
+	float circle_y      = style.compute("cy", "0", style.compute("height", "0"));
+	float circle_radius = atof(style.get("r", "0").c_str()); // FIXME compute for %
+
+	Glib::ustring fill  = style.get("fill", "#000");
+	float fill_opacity  = style.compute("fill_opacity", "1");
+	float opacity       = style.compute("opacity", "1");
+
+	xmlpp::Element *child_circle=root->add_child("layer");
+	child_circle->set_attribute("type","circle");
+	child_circle->set_attribute("active","true");
+	child_circle->set_attribute("version","0.2");
+	child_circle->set_attribute("desc",circle_id);
+
+	build_real(child_circle->add_child("param"),"z_depth",0.0);
+	build_real(child_circle->add_child("param"),"amount",1.0);
+	build_integer(child_circle->add_child("param"),"blend_method",0);
+	build_color(child_circle->add_child("param"),getRed (fill),getGreen (fill),getBlue(fill),opacity*fill_opacity);
+
+	float cx = circle_x;
+	float cy = circle_y;
+	coor2vect(&cx,&cy);
+	build_vector (child_circle->add_child("param"),"origin",cx,cy);
+	float r = circle_radius;
+	r /= kux;
+	build_real(child_circle->add_child("param"),"radius",r);
+}
+
+/* === CONVERT TO PATH PARSERS ============================================= */
 
 std::list<BLine>
 Svg_parser::parser_path_polygon(const Glib::ustring& polygon_points, const SVGMatrix& mtx)
@@ -536,7 +815,7 @@ Svg_parser::parser_path_polygon(const Glib::ustring& polygon_points, const SVGMa
 
 	for(unsigned int i=0;i<tokens.size();i++){
 		float ax=atof(tokens.at(i).data());
-		i++; if(tokens[i] == ",") i++;
+		i++;
 		float ay=atof(tokens.at(i).data());
 		//mtx
 		mtx.transformPoint2D(ax,ay);
@@ -557,42 +836,63 @@ Svg_parser::parser_path_d(const String& path_d, const SVGMatrix& mtx)
 
 	std::vector<String> tokens=get_tokens_path(path_d);
 	String command="M"; //the current command
+	int lower_command='m';
 	float ax,ay,tgx,tgy,tgx2,tgy2;//each method
 	ax=ay=0;
-	float actual_x=0,actual_y=0; //in svg coordinate space
+	float current_x=0,current_y=0; //in svg coordinate space
 	float old_x=0,old_y=0; //needed in rare cases
 	float init_x=0,init_y=0; //for closepath commands
 
+	bool is_old_cubic_tg_valid = false;
+	bool is_old_quadratic_tg_valid = false;
+	float old_tgx=0, old_tgy=0; // for shorthand cubic or quadratic commands
+
+	const std::string possible_commands {"MmLlHhVvCcSsQqTtAaZz"};
+	auto report_incomplete = [](const std::string& command) {
+		error("SVG Parser: incomplete <d> element path command: %c!", command[0]);
+	};
+
 	for(unsigned int i=0;i<tokens.size();i++){
 		//if the token is a command, change the current command
-		if(tokens[i] == "M" || tokens[i] == "m" || tokens[i] == "L" || tokens[i] == "l" || tokens[i] == "H" || tokens[i] == "h" || tokens[i] == "V" || tokens[i] == "v" || tokens[i] == "C" || tokens[i] == "c" || tokens[i] == "S" || tokens[i] == "s" || tokens[i] == "Q" || tokens[i] == "q" || tokens[i] == "T" || tokens[i] == "t" || tokens[i] == "A" || tokens[i] == "a" || tokens[i] == "z") {
-			command=tokens.at(i);
+		if(possible_commands.find(tokens[i]) != std::string::npos) {
+			command = tokens[i];
 			i++;
 		}
-		
-		old_x=actual_x;
-		old_y=actual_y;
-		//if command is absolute, set actual_x/y to zero
-		if(command == "M" || command == "L" || command == "C" || command == "S" || command == "Q" || command == "T" || command == "A" || command == "H" || command == "V") {
-			actual_x=0;
-			actual_y=0;
+
+		lower_command = std::tolower(command[0]);
+		if (lower_command != 'z') {
+			if (i >= tokens.size()) { report_incomplete(command); break; }
 		}
 
+		old_x=current_x;
+		old_y=current_y;
+		//if command is absolute, set actual_x/y to zero
+		if(std::isupper(command[0])) {
+			current_x=0;
+			current_y=0;
+		}
+
+		if (lower_command != 'c' && lower_command != 's')
+			is_old_cubic_tg_valid = false;
+		if (lower_command != 'q' && lower_command != 't')
+			is_old_quadratic_tg_valid = false;
+
 		//now parse the commands
-		if(command == "M" || command == "m"){ //move to
+		switch (lower_command){
+		case 'm':{ //move to
 			if(!k1.empty()) {
 				k.push_front(BLine(k1, false));
 				k1.clear();
 			}
 			//read
-			actual_x+=atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
-			actual_y+=atof(tokens.at(i).data());
+			current_x+=atof(tokens.at(i).data());
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			current_y+=atof(tokens.at(i).data());
 
-			init_x=actual_x;
-			init_y=actual_y;
-			ax=actual_x;
-			ay=actual_y;
+			init_x=current_x;
+			init_y=current_y;
+			ax=current_x;
+			ay=current_y;
 			//operate and save
 			mtx.transformPoint2D(ax,ay);
 			coor2vect(&ax,&ay);
@@ -604,22 +904,43 @@ Svg_parser::parser_path_d(const String& path_d, const SVGMatrix& mtx)
 				command="L";
 			else
 				command="l";
-		}else if(command == "C" || command == "c"){ //curve
-			//tg2
-			tgx2=actual_x+atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
-			tgy2=actual_y+atof(tokens.at(i).data());
+			break;
+		}
+		case 'c':
+		case 's':{ //curveto
+			if (lower_command == 'c') {
+				//tg2
+				tgx2=current_x+atof(tokens.at(i).data());
+				i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+				tgy2=current_y+atof(tokens.at(i).data());
+			} else { // 's'
+				if (is_old_cubic_tg_valid) {
+					tgx2 = 2*old_x - old_tgx;
+					tgy2 = 2*old_y - old_tgy;
+				} else {
+					tgx2 = old_x;
+					tgy2 = old_y;
+				}
+			}
 			//tg1
-			i++; tgx=actual_x+atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
-			tgy=actual_y+atof(tokens.at(i).data());
+			if (lower_command == 'c') {
+				i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			}
+			tgx=current_x+atof(tokens.at(i).data());
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			tgy=current_y+atof(tokens.at(i).data());
 			//point
-			i++; actual_x+=atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
-			actual_y+=atof(tokens.at(i).data());
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			current_x+=atof(tokens.at(i).data());
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			current_y+=atof(tokens.at(i).data());
 
-			ax=actual_x;
-			ay=actual_y;
+			old_tgx = tgx;
+			old_tgy = tgy;
+			is_old_cubic_tg_valid = true;
+
+			ax=current_x;
+			ay=current_y;
 			//mtx
 			if(!mtx.is_identity()){
 				mtx.transformPoint2D(tgx2,tgy2);
@@ -632,243 +953,322 @@ Svg_parser::parser_path_d(const String& path_d, const SVGMatrix& mtx)
 			coor2vect(&tgx,&tgy);
 			//save
 			k1.back().setTg2(tgx2,tgy2);
-			if(k1.front().isFirst(ax,ay)){
-				k1.front().setTg1(tgx,tgy);
-			}else{
-				k1.push_back(Vertex(ax,ay));
-				k1.back().setTg1(tgx,tgy);
-				k1.back().setSplit(true);
-			}
-		}else if(command == "Q" || command == "q"){ //quadractic curve
-			//tg1 and tg2
-			tgx=actual_x+atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
-			tgy=actual_y+atof(tokens.at(i).data());
-			//point
-			i++; actual_x+=atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
-			actual_y+=atof(tokens.at(i).data());
 
-			ax=actual_x;
-			ay=actual_y;
+			k1.push_back(Vertex(ax,ay));
+			k1.back().setTg1(tgx,tgy);
+			k1.back().setSplit(true);
+
+			break;
+		}
+		case 'q':
+		case 't':{ //quadractic curve
+				//tg1 and tg2 : they must be decreased 2/3 to correct representation
+			if (lower_command == 'q') {
+				tgx=current_x+atof(tokens.at(i).data());
+				i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+				tgy=current_y+atof(tokens.at(i).data());
+			} else { // 't'
+				if (is_old_quadratic_tg_valid) {
+					tgx = 2*old_x - old_tgx;
+					tgy = 2*old_y - old_tgy;
+				} else {
+					tgx = old_x;
+					tgy = old_y;
+				}
+			}
+			//point
+			if (lower_command == 'q') {
+				i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			}
+			current_x+=atof(tokens.at(i).data());
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			current_y+=atof(tokens.at(i).data());
+
+			old_tgx = tgx;
+			old_tgy = tgy;
+			is_old_quadratic_tg_valid = true;
+
+			ax=current_x;
+			ay=current_y;
 			//mtx
-			mtx.transformPoint2D(ax,ay);
-			mtx.transformPoint2D(tgx,tgy);
+			if (!mtx.is_identity()) {
+				mtx.transformPoint2D(ax,ay);
+				mtx.transformPoint2D(tgx,tgy);
+			}
 			//adjust
 			coor2vect(&ax,&ay);
 			coor2vect(&tgx,&tgy);
 			//save
-			k1.back().setTg1(tgx,tgy);
-			k1.back().setSplit(false);
+			k1.back().setTg2(tgx,tgy);
+			k1.back().radius2 *= 2/3.;
+			k1.back().setSplit(true);
+
 			k1.push_back(Vertex(ax,ay));
 			k1.back().setTg1(tgx,tgy);
-		}else if(command == "L" || command == "l"){ //line to
-			//point
-			actual_x+=atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
-			actual_y+=atof(tokens.at(i).data());
+			k1.back().radius1 *= 2/3.;
 
-			ax=actual_x;
-			ay=actual_y;
+			break;
+		}
+		case 'l':
+		case 'h':
+		case 'v':{ //line to
+			//point
+			if (command == "L" || command == "l") {
+				current_x+=atof(tokens.at(i).data());
+				i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+				current_y+=atof(tokens.at(i).data());
+			} else if (command == "H" || command == "h") { // horizontal move
+				current_x+=atof(tokens.at(i).data());
+				current_y=old_y;
+			} else if (command == "V" || command == "v") { //vertical
+				current_x=old_x;
+				current_y+=atof(tokens.at(i).data());
+			}
+
+			ax=current_x;
+			ay=current_y;
 			//mtx
 			mtx.transformPoint2D(ax,ay);
 			//adjust
 			coor2vect(&ax,&ay);
 			//save
 			k1.back().setTg2(k1.back().x,k1.back().y);
-			if(k1.front().isFirst(ax,ay)){
+			if(k1.front().isEqualTo(ax,ay)){
 				k1.front().setTg1(k1.front().x,k1.front().y);
 			}else{
 				k1.push_back(Vertex(ax,ay));
 				k1.back().setTg1(k1.back().x,k1.back().y);
 			}
-		}else if(command == "H" || command == "h"){// horizontal move
-			//the same that L but only Horizontal movement
-			//point
-			actual_x+=atof(tokens.at(i).data());
-
-			ax=actual_x;
-			ay=old_y;
-			//mtx
-			mtx.transformPoint2D(ax,ay);
-			//adjust
-			coor2vect(&ax,&ay);
-			//save
-			k1.back().setTg2(k1.back().x,k1.back().y);
-			if(k1.front().isFirst(ax,ay)){
-				k1.front().setTg1(k1.front().x,k1.front().y);
-			}else{
-				k1.push_back(Vertex(ax,ay));
-				k1.back().setTg1(k1.back().x,k1.back().y);
-			}
-		}else if(command == "V" || command == "v"){//vertical
-			//point
-			actual_y+=atof(tokens.at(i).data());
-
-			ax=old_x;
-			ay=actual_y;
-			//mtx
-			mtx.transformPoint2D(ax,ay);
-			//adjust
-			coor2vect(&ax,&ay);
-			//save
-			k1.back().setTg2(k1.back().x,k1.back().y);
-			if(k1.front().isFirst(ax,ay)){
-				k1.front().setTg1(k1.front().x,k1.front().y);
-			}else{
-				k1.push_back(Vertex(ax,ay));
-				k1.back().setTg1(k1.back().x,k1.back().y);
-			}
-		}else if(command == "T" || command == "t"){// I don't know what does it
-			actual_x+=atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
-			actual_y+=atof(tokens.at(i).data());
-		}else if(command == "A" || command == "a"){//elliptic arc
+			break;
+		}
+		case 'a':{//elliptic arc
 
 			//isn't complete support, is only for circles
 
 			//this curve have 6 parameters
 			//radius
 			float radius_x,radius_y;
-			// todo: why 'angle' never used?
-			//float angle;
-			bool sweep,large;
+			//angle
+			Angle angle;
+			// flags (larger or smaller arc) (clockwise sweep or not)
+			bool large,sweep;
 			//radius
 			radius_x=atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
 			radius_y=atof(tokens.at(i).data());
 			//angle
-			// todo: why 'angle' never used?
-			i++; // angle=atof(tokens.at(i).data());
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			angle=Angle::deg(atof(tokens.at(i).data()));
 			//flags
-			i++; large=atoi(tokens.at(i).data());
-			i++; sweep=atoi(tokens.at(i).data());
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			large=atoi(tokens.at(i).data()) ? 1 : 0;
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			sweep=atoi(tokens.at(i).data()) ? 1 : 0;
 			//point
-			i++; actual_x+=atof(tokens.at(i).data());
-			i++; if(tokens[i] == ",") i++;
-			actual_y+=atof(tokens.at(i).data());
-			//how to draw?
-			if(!large && !sweep){
-				//points
-				tgx2 = old_x + radius_x*0.5;
-				tgy2 = old_y ;
-				tgx  = actual_x;
-				tgy  = actual_y + radius_y*0.5;
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			current_x+=atof(tokens.at(i).data());
+			i++; if (i >= tokens.size()) { report_incomplete(command); break; }
+			current_y+=atof(tokens.at(i).data());
 
-				ax=actual_x;
-				ay=actual_y;
-				//transformations
-				if(!mtx.is_identity()){
-					mtx.transformPoint2D(tgx2,tgy2);
+			// According to section F.6.2 of SVG 1.1 specs and section 9.5.1 of SVG 2 specs
+			//    ("Out-of-range elliptical arc parameters")
+			{
+				if (approximate_equal(current_x, old_x) && approximate_equal(current_y, old_y)) {
+					// If endpoint == current point, ignore arc segment entirely
+					break;
+				}
+				if (approximate_zero(radius_x) || approximate_zero(radius_y)) {
+					// If either rx or ry is 0, then this arc is treated as a straight line segment (a "lineto") joining the endpoints.
+					// (copied from line_to above)
+
+					ax=current_x;
+					ay=current_y;
+					//mtx
 					mtx.transformPoint2D(ax,ay);
-					mtx.transformPoint2D(tgx,tgy);
+					//adjust
+					coor2vect(&ax,&ay);
+					//save
+					k1.back().setTg2(k1.back().x,k1.back().y);
+					if(k1.front().isEqualTo(ax,ay)){
+						k1.front().setTg1(k1.front().x,k1.front().y);
+					}else{
+						k1.push_back(Vertex(ax,ay));
+						k1.back().setTg1(k1.back().x,k1.back().y);
+					}
+					break;
 				}
-				//adjust
-				coor2vect(&tgx2,&tgy2);
-				coor2vect(&ax,&ay);
-				coor2vect(&tgx,&tgy);
-				//save
-				k1.back().setTg2(tgx2,tgy2);
-				if(k1.front().isFirst(ax,ay)){
-					k1.front().setTg1(tgx,tgy);
-				}else{
-					k1.push_back(Vertex (ax,ay));
-					k1.back().setTg1(tgx,tgy);
-					k1.back().setSplit(true);
-				}
-			}else if(!large &&  sweep){
-				//points
-				tgx2 = old_x;
-				tgy2 = old_y + radius_y*0.5;
-				tgx  = actual_x + radius_x*0.5;
-				tgy  = actual_y ;
+				// If either rx or ry have negative signs, these are dropped; the absolute value is used instead.
+				radius_x = std::fabs(radius_x);
+				radius_y = std::fabs(radius_y);
+			}
 
-				ax=actual_x;
-				ay=actual_y;
-				//transformations
-				if(!mtx.is_identity()){
-					mtx.transformPoint2D(tgx2,tgy2);
-					mtx.transformPoint2D(ax,ay);
-					mtx.transformPoint2D(tgx,tgy);
-				}
-				//adjust
-				coor2vect(&tgx2,&tgy2);
-				coor2vect(&ax,&ay);
-				coor2vect(&tgx,&tgy);
-				//save
-				k1.back().setTg2(tgx2,tgy2);
-				if(k1.front().isFirst(ax,ay)){
-					k1.front().setTg1(tgx,tgy);
-				}else{
-					k1.push_back(Vertex(ax,ay));
-					k1.back().setTg1(tgx,tgy);
-					k1.back().setSplit(true);
-				}
-			}else if( large && !sweep){//rare
-				//this need more than one vertex
-			}else if( large &&  sweep){//circles in inkscape are made with this kind of arc
-				//intermediate point
-				int sense=1;
-				if(old_x>actual_x) sense =-1;
-				float in_x,in_y,in_tgx1,in_tgy1,in_tgx2,in_tgy2;
-				in_x = (old_x+actual_x)/2;
-				in_y = old_y - sense*radius_y;
-				in_tgx1 = in_x - sense*(radius_x*0.5);
-				in_tgx2 = in_x + sense*(radius_x*0.5);
-				in_tgy1 = in_y;
-				in_tgy2 = in_y;
-				//start/end points
-				tgx2=old_x;
-				tgy2=actual_y - sense*(radius_y*0.5);
-				tgx =actual_x;
-				tgy =actual_y - sense*(radius_y*0.5);
+			// convert from endpoint to center parameterization
+			// Based on description in SVG 1.1 spec (F.6.5) and SVG 2 spec (B.2.4)
+			const Point p1_ = Matrix2().set_rotate(-angle) * Point((old_x - current_x)/2., (old_y - current_y)/2.);
 
-				ax=actual_x;
-				ay=actual_y;
-				//transformations
-				if(!mtx.is_identity()){
-					mtx.transformPoint2D(tgx2,tgy2);
-					mtx.transformPoint2D(tgx ,tgy );
-					mtx.transformPoint2D(ax,ay);
-
-					mtx.transformPoint2D(in_tgx2,in_tgy2);
-					mtx.transformPoint2D(in_tgx1,in_tgy1);
-					mtx.transformPoint2D(in_x,in_y);
-				}
-				//adjust
-				coor2vect(&tgx2 , &tgy2);
-				coor2vect(&ax   , &ay  );
-				coor2vect(&tgx  , &tgy );
-
-				coor2vect(&in_tgx2 , &in_tgy2);
-				coor2vect(&in_tgx1 , &in_tgy1);
-				coor2vect(&in_x    , &in_y   );
-
-				//save the last tg2
-				k1.back().setTg2(tgx2,tgy2);
-				//save the intermediate point
-				k1.push_back(Vertex(in_x,in_y));
-				k1.back().setTg1( in_tgx1 , in_tgy1);
-				k1.back().setTg2( in_tgx2 , in_tgy2);
-				k1.back().setSplit(true); //this could be changed
-				//save the new point
-				if(k1.front().isFirst(ax,ay)){
-					k1.front().setTg1(tgx,tgy);
-				}else{
-					k1.push_back(Vertex(ax,ay));
-					k1.back().setTg1(tgx,tgy);
-					k1.back().setSplit(true);
+			// Ensure radius is large enough
+			// Step 3 of Section F.6.6 (SVG 1.1) or B.2.5 (SVG 2)
+			bool radius_enlarged = false;
+			const Real el = p1_[0]*p1_[0]/(radius_x*radius_x) + p1_[1]*p1_[1]/(radius_y*radius_y);
+			{
+				if (el > 1.) {
+					radius_enlarged = true;
+					Real sqrt_el = sqrt(el);
+					radius_x *= sqrt_el;
+					radius_y *= sqrt_el;
 				}
 			}
-		}else if(command == "z"){
+
+			Point c_;
+			if (!radius_enlarged)  {
+				c_ = Point(radius_x/radius_y*p1_[1], -radius_y/radius_x*p1_[0]) * sqrt(1./el  - 1.);
+				if (large == sweep)
+					c_ = -c_;
+			}
+			Point c = Matrix2().set_rotate(angle) * c_ + Point((old_x + current_x)/2., (old_y + current_y)/2.);
+
+			const Point v0(1,0);
+			const Point v1((p1_[0]-c_[0])/(radius_x), (p1_[1]-c_[1])/(radius_y));
+			const Point v2((-p1_[0]-c_[0])/(radius_x), (-p1_[1]-c_[1])/(radius_y));
+
+			auto calc_angle = [] (const Point& p, const Point& q) -> Angle {
+				Real num = p[0]*q[0] + p[1]*q[1];
+				Real den = p.mag() * q.mag();
+				bool negative = p[0]*q[1] < p[1]*q[0];
+				Real a = num / den;
+				// avoid precision error
+				a = synfig::clamp(a, -1., 1.);
+				a = acos(a);
+				if ((a < 0 && !negative) || (a > 0 && negative))
+					a = -a;
+				return Angle::rad(a);
+			};
+
+			Angle theta1 = calc_angle(v0, v1);
+
+			Angle delta_theta = calc_angle(v1, v2);
+			if (!sweep && delta_theta > Angle::zero()) // clockwise
+				delta_theta -= Angle::one();
+			else if (sweep && delta_theta < Angle::zero()) // anti-clockwise
+				delta_theta += Angle::one();
+
+			Angle theta2 = theta1 + delta_theta;
+
+			// From here on, it is based on the paper "Drawing an elliptical arc using polylines, quadraticor cubic Bezier curves"
+			// by L. Maisonobe, initially available on https://www.spaceroots.org/documents/ellipse/elliptical-arc.pdf
+			// but now can be retrieved from https://web.archive.org/web/20210414175418/https://www.spaceroots.org/documents/ellipse/elliptical-arc.pdf
+			// Thanks to him, I was able to derive the approximate cubic Bezier curve control points for any ellipsis arc.
+
+			auto calc_eta = [] (const Angle& theta, float radius_x, float radius_y) -> Angle {
+				return Angle::rad(atan2(Angle::sin(theta).get()/radius_y, Angle::cos(theta).get()/radius_x));
+			};
+			auto approx_greater = [] (const Angle& a, const Angle& b) {
+				return approximate_greater_custom(Angle::deg(a).get(), Angle::deg(b).get(), 4.f);
+			};
+			auto approx_less = [] (const Angle& a, const Angle& b) {
+				return approximate_less_custom(Angle::deg(a).get(), Angle::deg(b).get(), 4.f);
+			};
+
+			// Calculate the theoretical angles eta (for point and tangent computation)
+			// Split great arcs at vertices multiples of 90 degrees
+			std::vector<Angle> etas;
+			etas.push_back(calc_eta(theta1, radius_x, radius_y));
+			if (theta2 > theta1) {
+				for (Angle a = -Angle::one()*3./4.; approx_less(a, theta2); a += Angle::half()/2)
+					if (approx_greater(a, theta1))
+						etas.push_back(calc_eta(a, radius_x, radius_y));
+			} else {
+				for (Angle a = Angle::one()*3./4.; approx_greater(a, theta2); a -= Angle::half()/2)
+					if (approx_less(a, theta1))
+						etas.push_back(calc_eta(a, radius_x, radius_y));
+			}
+			etas.push_back(calc_eta(theta2, radius_x, radius_y));
+
+			std::vector<Point> points;
+			points.push_back(Point(old_x, old_y));
+			std::vector<std::pair<float,float>> tangents;
+			for (size_t i = 1; i < etas.size(); i++) {
+				const Angle &eta1 = etas[i-1];
+				const Angle &eta2 = etas[i];
+
+				Real x = c[0] +radius_x*Angle::cos(angle).get()*Angle::cos(eta2).get()-radius_y*Angle::sin(angle).get()*Angle::sin(eta2).get();
+				Real y = c[1] +radius_x*Angle::sin(angle).get()*Angle::cos(eta2).get()+radius_y*Angle::cos(angle).get()*Angle::sin(eta2).get();
+				points.push_back(Point(x, y));
+
+				const Real alpha = Angle::sin(eta2 - eta1).get() * (sqrt(4+3*Angle::tan((eta2-eta1)/2.).get()*Angle::tan((eta2-eta1)/2.).get()) - 1) / 3.;
+
+				if (i == 1) {
+					Real tgx = old_x +alpha*(-radius_x*Angle::cos(angle).get()*Angle::sin(eta1).get()-radius_y*Angle::sin(angle).get()*Angle::cos(eta1).get());
+					Real tgy = old_y +alpha*(-radius_x*Angle::sin(angle).get()*Angle::sin(eta1).get()+radius_y*Angle::cos(angle).get()*Angle::cos(eta1).get());
+					tangents.push_back(std::pair<float,float>(tgx, tgy));
+				}
+
+				Real tgx = x -alpha*(-radius_x*Angle::cos(angle).get()*Angle::sin(eta2).get()-radius_y*Angle::sin(angle).get()*Angle::cos(eta2).get());
+				Real tgy = y -alpha*(-radius_x*Angle::sin(angle).get()*Angle::sin(eta2).get()+radius_y*Angle::cos(angle).get()*Angle::cos(eta2).get());
+				tangents.push_back(std::pair<float,float>(tgx, tgy));
+			}
+
+			// converting everything to Synfig coordinates
+			for (auto &p : points) {
+				float x = p[0];
+				float y = p[1];
+				//mtx
+				mtx.transformPoint2D(x, y);
+				//adjust
+				coor2vect(&x,&y);
+				p[0] = x;
+				p[1] = y;
+			}
+			for (auto &p : tangents) {
+				float x = p.first;
+				float y = p.second;
+				//mtx
+				mtx.transformPoint2D(x, y);
+				//adjust
+				coor2vect(&x,&y);
+				p.first = x;
+				p.second = y;
+			}
+
+			// Explicit for end point, for avoiding precision error
+			ax = current_x;
+			ay = current_y;
+			//mtx
+			mtx.transformPoint2D(ax, ay);
+			//adjust
+			coor2vect(&ax,&ay);
+
+			// Create Bline. First and last point are specially handled.
+
+			// First arc point
+			k1.back().setTg2(tangents.front().first, tangents.front().second);
+			k1.back().setSplit(true);
+
+			// Intermediate arc points
+			for (size_t i = 1; i < tangents.size()-1; i++) {
+				k1.push_back(Vertex(points[i][0], points[i][1]));
+				k1.back().setTg1(tangents[i].first, tangents[i].second);
+			}
+
+			// Last arc point
+			if(k1.front().isEqualTo(ax,ay)){
+				k1.front().setTg1(tangents.back().first, tangents.back().second);
+			}else{
+				k1.push_back(Vertex(ax, ay));
+				k1.back().setTg1(tangents.back().first, tangents.back().second);
+				k1.back().setSplit(true);
+			}
+			break;
+		}
+		case 'z':{
 			k.push_front(BLine(k1, true));
 			k1.clear();
+			current_x=init_x;
+			current_y=init_y;
 			if (i<tokens.size() && tokens[i] != "M" && tokens[i] != "m") {
-				//starting a new path, but not with a moveto
-				actual_x=init_x;
-				actual_y=init_y;
-				ax=actual_x;
-				ay=actual_y;
+				//starting a new path, but not with a moveto, so it uses the same initial point
+				ax=current_x;
+				ay=current_y;
 				//operate and save
 				mtx.transformPoint2D(ax,ay);
 				coor2vect(&ax,&ay);
@@ -876,13 +1276,186 @@ Svg_parser::parser_path_d(const String& path_d, const SVGMatrix& mtx)
 				k1.back().setSplit(true);
 			}
 			i--; //decrement i to balance "i++" at command change
-		}else{
+			break;
+		}
+		default:
 			synfig::warning("SVG Parser: unsupported path token: %s", tokens.at(i).c_str());
 		}
 	}
 	if(!k1.empty()) {
 		k.push_front(BLine(k1, false)); //last element
 	}
+	return k;
+}
+
+std::list<BLine>
+Svg_parser::parser_path_rect(const xmlpp::Element* nodeElement, const Style& style, const SVGMatrix& mtx)
+{
+	std::list<BLine> k;
+	if (!nodeElement)
+		return k;
+	try {
+		double rect_x      = style.compute("x", "0");
+		double rect_y      = style.compute("y", "0");
+		double rect_width  = style.compute("width", "0");
+		double rect_height = style.compute("height", "0");
+
+		if (approximate_zero(rect_width) || approximate_zero(rect_height))
+			return k;
+
+		if (rect_width < 0 || rect_height < 0) {
+			synfig::error("SVG Parser: Invalid width or height value for <rect>: it cannot be negative!");
+			return k;
+		}
+
+		double rect_rx = 0.;
+		double rect_ry = 0.;
+		parser_rxry_property(style, rect_width, rect_height, rect_rx, rect_ry);
+		{
+			if (rect_rx > rect_width/2)
+				rect_rx = rect_width/2;
+			if (rect_ry > rect_height/2)
+				rect_ry = rect_height/2;
+		}
+
+		std::string path;
+		if (rect_rx > 0 && rect_ry > 0)
+			path = strprintf("M %lf %lf H %lf A %lf %lf 0 0,1 %lf %lf V %lf A %lf %lf 0 0,1 %lf %lf H %lf "
+												  "A %lf %lf 0 0,1 %lf %lf V %lf A %lf %lf 0 0,1 %lf %lf z",
+								  rect_x + rect_rx, rect_y, rect_x + rect_width - rect_rx,
+								  rect_rx, rect_ry, rect_x + rect_width, rect_y + rect_ry,
+								  rect_y + rect_height - rect_ry,
+								  rect_rx, rect_ry, rect_x + rect_width - rect_rx, rect_y + rect_height,
+								  rect_x + rect_rx,
+								  rect_rx, rect_ry, rect_x, rect_y + rect_height - rect_ry,
+								  rect_y + rect_ry,
+								  rect_rx, rect_ry, rect_x + rect_rx, rect_y
+								  );
+		else
+			path = strprintf("M %lf %lf h %lf v %lf h %lf z",
+								  rect_x, rect_y, rect_width, rect_height, -rect_width
+								  );
+		k = parser_path_d(path,mtx);
+	} catch(...) {
+		synfig::error("SVG Parser: Invalid coordinate value: it should be a real value!");
+	}
+	return k;
+}
+
+std::list<BLine>
+Svg_parser::parser_path_circle(const xmlpp::Element* nodeElement, const Style& style, const SVGMatrix& mtx)
+{
+	std::list<BLine> k;
+	if (!nodeElement)
+		return k;
+	float circle_x = style.compute("cx", "0", style.compute("width", "0"));
+	float circle_y = style.compute("cy", "0", style.compute("height", "0"));
+	float circle_radius = atof(style.get("r", "0").c_str()); // FIXME compute for %
+
+	if (approximate_less(circle_radius, 0.f)) {
+		synfig::error("SVG Parser: Invalid circle r value: it cannot be negative!");
+		return k;
+	}
+
+	if (approximate_zero(circle_radius)) {
+		return k;
+	}
+
+	std::string path = strprintf("M %lf %lf A %lf %lf 0 0,1 %lf %lf A %lf %lf 0 0,1 %lf %lf "
+												"A %lf %lf 0 0,1 %lf %lf A %lf %lf 0 0,1 %lf %lf z",
+							  circle_x + circle_radius, circle_y,
+							  circle_radius, circle_radius, circle_x, circle_y + circle_radius,
+							  circle_radius, circle_radius, circle_x - circle_radius, circle_y,
+							  circle_radius, circle_radius, circle_x, circle_y - circle_radius,
+							  circle_radius, circle_radius, circle_x + circle_radius, circle_y
+							  );
+	k = parser_path_d(path,mtx);
+
+	return k;
+}
+
+std::list<BLine>
+Svg_parser::parser_path_ellipse(const xmlpp::Element *nodeElement, const Style &style, const SVGMatrix &mtx)
+{
+	std::list<BLine> k;
+	if (!nodeElement)
+		return k;
+	float ellipse_x = style.compute("cx", "0", style.compute("width", "0"));
+	float ellipse_y = style.compute("cy", "0", style.compute("height", "0"));;
+
+	double ellipse_rx = 0, ellipse_ry = 0;
+	if (!parser_rxry_property(style, style.compute("width", "0"), style.compute("height", "0"), ellipse_rx, ellipse_ry))
+		return k;
+
+	if (approximate_zero(ellipse_rx) || approximate_zero(ellipse_ry))
+		return k;
+	std::string path = strprintf("M %lf %lf A %lf %lf 0 0,1 %lf %lf A %lf %lf 0 0,1 %lf %lf "
+												"A %lf %lf 0 0,1 %lf %lf A %lf %lf 0 0,1 %lf %lf z",
+							  ellipse_x + ellipse_rx, ellipse_y,
+							  ellipse_rx, ellipse_ry, ellipse_x, ellipse_y + ellipse_ry,
+							  ellipse_rx, ellipse_ry, ellipse_x - ellipse_rx, ellipse_y,
+							  ellipse_rx, ellipse_ry, ellipse_x, ellipse_y - ellipse_ry,
+							  ellipse_rx, ellipse_ry, ellipse_x + ellipse_rx, ellipse_y
+							  );
+	k = parser_path_d(path,mtx);
+
+	return k;
+}
+
+std::list<BLine>
+Svg_parser::parser_line(const xmlpp::Element *nodeElement, const SVGMatrix &mtx)
+{
+	std::list<BLine> k;
+	if (!nodeElement)
+		return k;
+
+	double x1 = 0;
+	double x2 = 0;
+	double y1 = 0;
+	double y2 = 0;
+
+	try {
+		x1 = std::stod(nodeElement->get_attribute_value("x1"));
+		x2 = std::stod(nodeElement->get_attribute_value("x2"));
+		y1 = std::stod(nodeElement->get_attribute_value("y1"));
+		y2 = std::stod(nodeElement->get_attribute_value("y2"));
+	} catch (...) {
+		synfig::error("SVG Parser: Invalid <line> attribute: x1,y1,x2,y2 should be real values or percentages!");
+		return k;
+	}
+
+	std::string path = strprintf("M %lf %lf L %lf %lf", x1, y1, x2, y2);
+	k = parser_path_d(path,mtx);
+
+	return k;
+}
+
+std::list<BLine>
+Svg_parser::parser_polyline(const xmlpp::Element *nodeElement, const SVGMatrix &mtx)
+{
+	std::list<BLine> k;
+	if (!nodeElement)
+		return k;
+
+	std::string points_str = trim(nodeElement->get_attribute_value("points"));
+	if (points_str.empty() || points_str == "none")
+		return k;
+
+	std::vector<String> points = tokenize(points_str, ", \x09\x0a\x0d");
+
+	if (points.size() % 2 == 1) {
+		error("SVG Parser: incomplete <polyline> element: points have an odd number of coordinate components %zu! Ignoring last number", points.size());
+		points.pop_back();
+	}
+
+	std::string path = strprintf("M %lf %lf", atof(points[0].c_str()), atof(points[1].c_str()));
+
+	for (size_t i = 2; i < points.size(); i+=2)	 {
+		path.append(strprintf(" %lf %lf", atof(points[i].c_str()), atof(points[i+1].c_str())));
+	}
+
+	k = parser_path_d(path,mtx);
+
 	return k;
 }
 
@@ -950,7 +1523,6 @@ Svg_parser::build_transform(xmlpp::Element* root, const SVGMatrix& mtx)
 		build_vector (child_transform->add_child("param"),"dest_bl",x,y);
 
 		build_param (child_transform->add_child("param"),"clip","bool","false");
-		build_param (child_transform->add_child("param"),"horizon","real","4.0");
 	}
 }
 
@@ -979,8 +1551,8 @@ void
 Svg_parser::build_fill(xmlpp::Element* root, String name, const SVGMatrix& mtx)
 {
 	if(!name.empty()){
-		int start=name.find_first_of("#")+1;
-		int end=name.find_first_of(")");
+		int start=name.find_first_of('#')+1;
+		int end=name.find_first_of(')');
 		String target_name = name.substr(start,end-start);
 
 		for (const LinearGradient& linear_gradient : lg) {
@@ -1004,11 +1576,11 @@ Svg_parser::build_stop_color(xmlpp::Element* root, const std::list<ColorStop>& s
 {
 	for (const auto& aux_stop : stops) {
 		xmlpp::Element *child=root->add_child("color");
-		child->set_attribute("pos",etl::strprintf("%f",aux_stop.pos));
-		child->add_child("r")->set_child_text(etl::strprintf("%f",aux_stop.r));
-		child->add_child("g")->set_child_text(etl::strprintf("%f",aux_stop.g));
-		child->add_child("b")->set_child_text(etl::strprintf("%f",aux_stop.b));
-		child->add_child("a")->set_child_text(etl::strprintf("%f",aux_stop.a));
+		child->set_attribute("pos",strprintf("%f",aux_stop.pos));
+		child->add_child("r")->set_child_text(strprintf("%f",aux_stop.r));
+		child->add_child("g")->set_child_text(strprintf("%f",aux_stop.g));
+		child->add_child("b")->set_child_text(strprintf("%f",aux_stop.b));
+		child->add_child("a")->set_child_text(strprintf("%f",aux_stop.a));
 	}
 }
 
@@ -1237,20 +1809,16 @@ Svg_parser::adjustGamma(float r, float g, float b, float a)
 	return gamma.apply(Color(r,g,b,a));
 }
 
-LinearGradient::LinearGradient(const String& name, float x1, float y1, float x2, float y2, std::list<ColorStop> stops, SVGMatrix transform)
-	: x1(x1), x2(x2),
+LinearGradient::LinearGradient(const String& gradient_name, float x1, float y1, float x2, float y2, std::list<ColorStop> stops, SVGMatrix transform)
+	: name(gradient_name), x1(x1), x2(x2),
 	  y1(y1), y2(y2),
 	  stops(stops), transform(transform)
-{
-	sprintf(this->name,"%s",name.data());
-}
+{}
 
-RadialGradient::RadialGradient(const String& name, float cx, float cy, float r, std::list<ColorStop> stops, SVGMatrix transform)
-	: cx(cx), cy(cy), r(r),
+RadialGradient::RadialGradient(const String& gradient_name, float cx, float cy, float r, std::list<ColorStop> stops, SVGMatrix transform)
+	: name(gradient_name), cx(cx), cy(cy), r(r),
 	  stops(stops), transform(transform)
-{
-	sprintf(this->name,"%s",name.data());
-}
+{}
 
 BLine::BLine(std::list<Vertex> points, bool loop)
 	: points(points), loop(loop),
@@ -1296,8 +1864,8 @@ Svg_parser::build_points(xmlpp::Element* root, const std::list<Vertex>& p)
 	for (const Vertex& vertex : p){
 		xmlpp::Element *child_entry=child->add_child("entry");
 		xmlpp::Element *child_vector=child_entry->add_child("vector");
-		child_vector->add_child("x")->set_child_text(etl::strprintf("%f",vertex.x));
-		child_vector->add_child("y")->set_child_text(etl::strprintf("%f",vertex.y));
+		child_vector->add_child("x")->set_child_text(strprintf("%f",vertex.x));
+		child_vector->add_child("y")->set_child_text(strprintf("%f",vertex.y));
 	}
 }
 
@@ -1309,8 +1877,10 @@ Svg_parser::build_vertex(xmlpp::Element* root, const Vertex &p)
 	build_vector (child_comp->add_child("param"),"point",p.x,p.y);
 	build_param (child_comp->add_child("width"),"","real","1.0000000000");
 	build_param (child_comp->add_child("origin"),"","real","0.5000000000");
-	if(p.split) build_param (child_comp->add_child("split"),"","bool","true");
-	else build_param (child_comp->add_child("split"),"","bool","false");
+	// ??????????
+	build_param (child_comp->add_child("split"),"","bool", p.split_radius || p.split_angle ? "true" : "false");
+	build_param (child_comp->add_child("split_radius"),"","bool", p.split_radius? "true" : "false");
+	build_param (child_comp->add_child("split_angle"),"","bool", p.split_angle? "true" : "false");
 	//tangent 1
 	xmlpp::Element *child_t1=child_comp->add_child("t1");
 	xmlpp::Element *child_rc=child_t1->add_child("radial_composite");
@@ -1340,6 +1910,23 @@ Svg_parser::build_bline(xmlpp::Element* root, const std::list<Vertex>& p, bool l
 }
 
 void
+Svg_parser::build_dilist(xmlpp::Element *root, const std::vector<float>& p, int linecap)
+{
+	root->set_attribute("name","dilist");
+	xmlpp::Element *child=root->add_child("dilist");
+	child->set_attribute("type","dash_item");
+	child->set_attribute("loop", "false");
+	for (size_t i = 0; i < p.size(); i++){
+		xmlpp::Element *entry = child->add_child("entry")->add_child("composite");
+		entry->set_attribute("type","dash_item");
+		build_integer( entry->add_child("side_before"), "", linecap);
+		build_integer( entry->add_child("side_after"), "", linecap);
+		build_real( entry->add_child("length"), "", p[i]/kux);
+		build_real( entry->add_child("offset"), "", p[++i]/kux);
+	}
+}
+
+void
 Svg_parser::build_param(xmlpp::Element* root, const String& name, const String& type, const String& value)
 {
 	if(!type.empty() && !value.empty()){
@@ -1357,7 +1944,7 @@ Svg_parser::build_param(xmlpp::Element* root, const String& name, const String& 
 	if(!type.empty()){
 		if(!name.empty()) root->set_attribute("name",name);
 		xmlpp::Element *child=root->add_child(type);
-		child->set_attribute("value", etl::strprintf("%f",value));
+		child->set_attribute("value", strprintf("%f",value));
 	}else{
 		root->get_parent()->remove_child(root);
 	}
@@ -1369,7 +1956,7 @@ Svg_parser::build_param(xmlpp::Element* root, const String& name, const String& 
 	if(!type.empty()){
 			if(!name.empty()) root->set_attribute("name",name);
 			xmlpp::Element *child=root->add_child(type);
-			child->set_attribute("value", etl::strprintf("%d", value));
+			child->set_attribute("value", strprintf("%d", value));
 	}else{
 		root->get_parent()->remove_child(root);
 	}
@@ -1380,7 +1967,7 @@ Svg_parser::build_integer(xmlpp::Element* root, const String& name, int value)
 {
 	if(!name.empty()) root->set_attribute("name",name);
 	xmlpp::Element *child=root->add_child("integer");
-	child->set_attribute("value",etl::strprintf("%d", value));
+	child->set_attribute("value",strprintf("%d", value));
 }
 
 void
@@ -1388,7 +1975,7 @@ Svg_parser::build_real(xmlpp::Element* root, const String& name, float value)
 {
 	if(!name.empty()) root->set_attribute("name",name);
 	xmlpp::Element *child=root->add_child("real");
-	child->set_attribute("value",etl::strprintf("%f", value));
+	child->set_attribute("value",strprintf("%f", value));
 }
 
 void
@@ -1403,10 +1990,10 @@ Svg_parser::build_color(xmlpp::Element* root, float r, float g, float b, float a
 
 	root->set_attribute("name","color");
 	xmlpp::Element *child=root->add_child("color");
-	child->add_child("r")->set_child_text(etl::strprintf("%f",ret.get_r()));
-	child->add_child("g")->set_child_text(etl::strprintf("%f",ret.get_g()));
-	child->add_child("b")->set_child_text(etl::strprintf("%f",ret.get_b()));
-	child->add_child("a")->set_child_text(etl::strprintf("%f",ret.get_a()));
+	child->add_child("r")->set_child_text(strprintf("%f",ret.get_r()));
+	child->add_child("g")->set_child_text(strprintf("%f",ret.get_g()));
+	child->add_child("b")->set_child_text(strprintf("%f",ret.get_b()));
+	child->add_child("a")->set_child_text(strprintf("%f",ret.get_a()));
 }
 
 void
@@ -1414,8 +2001,8 @@ Svg_parser::build_vector(xmlpp::Element* root, const String& name, float x, floa
 {
 	if(!name.empty()) root->set_attribute("name",name);
 	xmlpp::Element *child=root->add_child("vector");
-	child->add_child("x")->set_child_text(etl::strprintf("%f",x));
-	child->add_child("y")->set_child_text(etl::strprintf("%f",y));
+	child->add_child("x")->set_child_text(strprintf("%f",x));
+	child->add_child("y")->set_child_text(strprintf("%f",y));
 }
 
 void
@@ -1424,12 +2011,12 @@ Svg_parser::build_vector (xmlpp::Element* root, const String& name, float x, flo
 	if(!name.empty()) root->set_attribute("name",name);
 	xmlpp::Element *child=root->add_child("vector");
 	if(!guid.empty()) child->set_attribute("guid",guid);
-	child->add_child("x")->set_child_text(etl::strprintf("%f",x));
-	child->add_child("y")->set_child_text(etl::strprintf("%f",y));
+	child->add_child("x")->set_child_text(strprintf("%f",x));
+	child->add_child("y")->set_child_text(strprintf("%f",y));
 }
 
 xmlpp::Element*
-Svg_parser::nodeStartBasicLayer(xmlpp::Element* root, const String& name)
+Svg_parser::initializeGroupLayerNode(xmlpp::Element* root, const String& name)
 {
 	root->set_attribute("type","group");
 	root->set_attribute("active","true");
@@ -1498,11 +2085,22 @@ Vertex::setTg2(float p2x,float p2y)
 void
 Vertex::setSplit(bool val)
 {
-	split=val;
+	split_radius = val;
+	split_angle = val;
+}
+
+void Vertex::setSplitRadius(bool val)
+{
+	split_radius = val;
+}
+
+void Vertex::setSplitAngle(bool val)
+{
+	split_angle = val;
 }
 
 bool
-Vertex::isFirst(float a, float b) const
+Vertex::isEqualTo(float a, float b) const
 {
 	return approximate_equal(x, a) && approximate_equal(y, b);
 }
@@ -1511,7 +2109,8 @@ Vertex::Vertex(float x,float y)
 	: x(x), y(y),
 	  radius1(0), angle1(0),
 	  radius2(0), angle2(0),
-	  split(false)
+	  split_radius(false),
+	  split_angle(false)
 {
 }
 
@@ -1522,45 +2121,104 @@ SVGMatrix::parser_transform(String transform)
 	bool first_iteration = true;
 	SVGMatrix a;
 
-	String tf(transform);
-	removeIntoS(tf);
-	std::vector<String> tokens=tokenize(tf," ");
-	for (const String& token : tokens) {
+	transform = trim(transform);
+
+	if (transform.empty() || transform == "none") {
+		*this = a;
+		return;
+	}
+
+	std::vector<String> tokens=tokenize(transform,")");
+	for (String token : tokens) {
+		token = trim(token);
 		if(token.compare(0,9,"translate")==0){
-			float dx,dy;
-			int start,end;
-			start	=token.find_first_of("(")+1;
-			end		=token.find_first_of(",");
-			dx		=atof(token.substr(start,end-start).data());
-			start	=token.find_first_of(",")+1;
-			end		=token.size()-1;
-			dy		=atof(token.substr(start,end-start).data());
+			int start = token.find_first_of('(')+1;
+			std::vector<String> args = tokenize(token.substr(start), ", \x09\x0a\x0d");
+
+			float dx = 0, dy = 0;
+			if (args.size() > 0) {
+				dx = atof(args[0].c_str());
+				if (args.size() > 1)
+					dy = atof(args[1].c_str());
+			}
+
+			const SVGMatrix translation_matrix = SVGMatrix(1,0,0,1,dx,dy);
 			if (first_iteration)
-				a = SVGMatrix(1,0,0,1,dx,dy);
+				a = translation_matrix;
 			else
-				a.multiply(SVGMatrix(1,0,0,1,dx,dy));
+				a.multiply(translation_matrix);
 		}else if(token.compare(0,5,"scale")==0){
+			int start = token.find_first_of('(')+1;
+			std::vector<String> args = tokenize(token.substr(start), ", \x09\x0a\x0d");
+
+			float sx = 1, sy = 1;
+			if (args.size() > 0) {
+				sx = atof(args[0].c_str());
+				if (args.size() > 1)
+					sy = atof(args[1].c_str());
+				else
+					sy = sx;
+			}
+
+			const SVGMatrix scale_matrix = SVGMatrix(sx,0,0,sy,0,0);
 			if (first_iteration)
-				a = SVGMatrix(1,0,0,1,0,0);
+				a = scale_matrix;
+			else
+				a.multiply(scale_matrix);
 		}else if(token.compare(0,6,"rotate")==0){
-			float angle,seno,coseno;
-			int start,end;
-			start	=token.find_first_of("(")+1;
-			end		=token.size()-1;
-			angle=getRadian (atof(token.substr(start,end-start).data()));
-			seno   =sin(angle);
-			coseno =cos(angle);
-			if (first_iteration)
-				a = SVGMatrix(coseno,seno,-1*seno,coseno,0,0);
-			else
-				a.multiply(SVGMatrix(coseno,seno,-1*seno,coseno,0,0));
+			int start = token.find_first_of('(')+1;
+			std::vector<String> args = tokenize(token.substr(start), ", \x09\x0a\x0d");
+
+			float angle = 0, cx = 0, cy = 0;
+			if (args.size() > 0) {
+				angle = getRadian(atof(args[0].c_str()));
+				if (args.size() == 3) {
+					cx = atof(args[1].c_str());
+					cy = atof(args[2].c_str());
+				}
+			}
+
+			const float seno   = sin(angle);
+			const float coseno = cos(angle);
+
+			const SVGMatrix rot_matrix = SVGMatrix(coseno,seno,-seno,coseno,0,0);
+			if (approximate_zero(cx) && approximate_zero(cy)) {
+				if (first_iteration)
+					a = rot_matrix;
+				else
+					a.multiply(rot_matrix);
+			} else {
+				SVGMatrix aux(1,0,0,1,cx,cy);
+				aux.multiply(rot_matrix);
+				aux.multiply(SVGMatrix(1,0,0,1,-cx,-cy));
+				if (first_iteration)
+					a = aux;
+				else
+					a.multiply(aux);
+			}
 		}else if(token.compare(0,6,"matrix")==0){
-			int start	=token.find_first_of('(')+1;
-			int end		=token.find_first_of(')');
+			int start = token.find_first_of('(')+1;
 			if (first_iteration)
-				a = SVGMatrix(token.substr(start,end-start));
+				a = SVGMatrix(token.substr(start));
 			else
-				a.multiply(SVGMatrix(token.substr(start,end-start)));
+				a.multiply(SVGMatrix(token.substr(start)));
+		}else if(token.compare(0,4,"skew")==0){
+			int start = token.find_first_of('(')+1;
+			std::vector<String> args = tokenize(token.substr(start), ", \x09\x0a\x0d");
+
+			float angle = 0;
+			if (args.size() > 0) {
+				angle = getRadian(atof(args[0].c_str()));
+			}
+
+			const float tgx = token[4] == 'X' ? tan(angle) : 0;
+			const float tgy = token[4] == 'Y' ? tan(angle) : 0;
+
+			const SVGMatrix skew_matrix = SVGMatrix(1,tgy,tgx,1,0,0);
+			if (first_iteration)
+				a = skew_matrix;
+			else
+				a.multiply(skew_matrix);
 		}else{
 			a = SVGMatrix(1,0,0,1,0,0);
 		}
@@ -1676,8 +2334,9 @@ get_tokens_path(const String& path) //mini path lexico-parser
 					else if(a=='H'){ e=16; i++;}
 					else if(a=='z' || a=='Z'){ e=17; i++;}
 					else if(a=='-' || a=='.' || a=='e' || a=='E' || isdigit (a)){ e=18;}
-					else if(a==','){ e=19; i++;}
-					else if(a==' '){i++;}
+					else if(a=='s'){ e=19; i++;}
+					else if(a=='S'){ e=20; i++;}
+					else if(a==',' || a==' ' || a==0x09 || a==0x0a || a==0x0d){ i++;}
 					else {
 						synfig::warning("SVG Parser: unknown token in SVG path '%c'", a);
 						i++;
@@ -1706,11 +2365,12 @@ get_tokens_path(const String& path) //mini path lexico-parser
 			case 18: if(a=='-' || a=='.' || a=='e' || a=='E' || isdigit (a)){
 						buffer.append(path.substr(i,1));i++;
 					}else{
-						e=20;
+						e=21;
 					}
 					break;
-			case 19: tokens.push_back(","); e=0; break;
-			case 20: tokens.push_back(buffer);
+			case 19: tokens.push_back("s"); e=0; break;
+			case 20: tokens.push_back("S"); e=0; break;
+			case 21: tokens.push_back(buffer);
 					buffer.clear();
 					e=0; break;
 			default: break;
@@ -1735,8 +2395,9 @@ get_tokens_path(const String& path) //mini path lexico-parser
 		case 16: tokens.push_back("H"); break;
 		case 17: tokens.push_back("z"); break;
 		case 18: tokens.push_back(buffer); break;
-		case 19: tokens.push_back(","); break;
-		case 20: tokens.push_back(buffer); break;
+		case 19: tokens.push_back("s"); break;
+		case 20: tokens.push_back("S"); break;
+		case 21: tokens.push_back(buffer); break;
 		default: break;
 	}
 	return tokens;
@@ -1750,8 +2411,8 @@ getRed(const String& hex)
 		if (hex.length()<7) return (16+1) * hextodec(hex.substr(1,1));
 		return hextodec(hex.substr(1,2));
 	}else if(hex.compare(0,3,"rgb")==0 || hex.compare(0,3,"RGB")==0){
-		int start=hex.find_first_of("(")+1;
-		int end	=hex.find_last_of(")");
+		int start=hex.find_first_of('(')+1;
+		int end	=hex.find_last_of(')');
 		String aux=tokenize(hex.substr(start,end-start),",").at(0);
 		return atoi(aux.data());
 	}
@@ -1764,8 +2425,8 @@ getGreen(const String& hex)
 		if (hex.length()<7) return (16+1) * hextodec(hex.substr(2,1));
 		return hextodec(hex.substr(3,2));
 	}else if(hex.compare(0,3,"rgb")==0 || hex.compare(0,3,"RGB")==0){
-		int start=hex.find_first_of("(")+1;
-		int end	=hex.find_last_of(")");
+		int start=hex.find_first_of('(')+1;
+		int end	=hex.find_last_of(')');
 		String aux=tokenize(hex.substr(start,end-start),",").at(1);
 		return atoi(aux.data());
 	}
@@ -1778,8 +2439,8 @@ getBlue(const String& hex)
 		if (hex.length()<7) return (16+1) * hextodec(hex.substr(3,1));
 		return hextodec(hex.substr(5,2));
 	}else if(hex.compare(0,3,"rgb")==0 || hex.compare(0,3,"RGB")==0){
-		int start=hex.find_first_of("(")+1;
-		int end	=hex.find_last_of(")");
+		int start=hex.find_first_of('(')+1;
+		int end	=hex.find_last_of(')');
 		String aux=tokenize(hex.substr(start,end-start),",").at(2);
 		return atoi(aux.data());
 	}
@@ -1849,20 +2510,6 @@ getRadian(float sexa){
 	return (sexa*2*PI)/360;
 }
 
-static void
-removeIntoS(String& input){
-	bool into=false;
-	for(unsigned int i=0;i<input.size();i++){
-		if(input.at(i)=='('){
-			into=true;
-		}else if(input.at(i)==')'){
-			into=false;
-		}else if(into && input.at(i)==' '){
-			input.erase(i,1);
-			i--;
-		}
-	}
-}
 static std::vector<String>
 tokenize(const String& str,const String& delimiters){
 	std::vector<String> tokens;
@@ -1875,12 +2522,6 @@ tokenize(const String& str,const String& delimiters){
 	}
 	return tokens;
 }
-String
-Svg_parser::new_guid(){
-	uid++;
-	return GUID::hasher(uid).get_string();
-}
-
 
 #define COLOR_NAME(color, r, g, b) {color, {r, g, b}},
 
@@ -2136,17 +2777,23 @@ Style::compute(const std::string &property, std::string default_value, double re
 
 	double d_value;
 	if (parse_number_or_percent(value, d_value)) {
-		return d_value * reference_value;
+		if (!value.empty() && value.back() == '%')
+			return d_value * reference_value;
+		else
+			return d_value;
 	}
 
 	warning("Layer_Svg: %s",
-		etl::strprintf(_("Invalid number for '%s': %s. Trying default value..."), property.c_str(), value.c_str()).c_str());
+		strprintf(_("Invalid number for '%s': %s. Trying default value..."), property.c_str(), value.c_str()).c_str());
 
 	if (parse_number_or_percent(default_value, d_value)) {
-		return d_value * reference_value;
+		if (!value.empty() && value.back() == '%')
+			return d_value * reference_value;
+		else
+			return d_value;
 	}
 
-	error("Layer_Svg: %s", etl::strprintf(_("... No, invalid number for '%s': %s"), property.c_str(), default_value.c_str()).c_str());
+	error("Layer_Svg: %s", strprintf(_("... No, invalid number for '%s': %s"), property.c_str(), default_value.c_str()).c_str());
 	return 0;
 }
 
@@ -2224,7 +2871,7 @@ Style::merge_style_string(const std::string &style_str)
 {
 	size_t previous_pos = 0;
 	size_t pos = 0;
-	while ((pos = style_str.find(';', pos)) != std::string::npos) {
+	auto push_property = [&] (size_t& pos) {
 		std::string token = style_str.substr(previous_pos, pos-previous_pos);
 		size_t separator_pos = token.find(':');
 		if (separator_pos != std::string::npos && separator_pos != token.size()-1) {
@@ -2233,9 +2880,17 @@ Style::merge_style_string(const std::string &style_str)
 			if (!prop.empty() && !value.empty())
 				push(prop, value);
 		}
-		previous_pos = pos;
 		pos++;
+		previous_pos = pos;
+	};
+
+	while ((pos = style_str.find(';', pos)) != std::string::npos) {
+		push_property(pos);
 	}
+
+	// last item
+	pos = style_str.length();
+	push_property(pos);
 }
 
 void

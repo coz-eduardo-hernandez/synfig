@@ -2,22 +2,25 @@
 /*!	\file layer.h
 **	\brief Layer Class Header
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2008 Chris Moore
 **  Copyright (c) 2011-2013 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -483,7 +486,7 @@ public:
 	//! Returns the localised version of the given layer parameter
 	const String get_param_local_name(const String &param_name)const;
 
-	//! Returns a handle to the Parent PasteCanvas layer or NULL if layer belongs to root canvas
+	//! Returns a handle to the Parent PasteCanvas layer or nullptr if layer belongs to root canvas
 	/*! Notice that it could return the wrong handle to PasteCanvas if the layer */
 	/*! belongs to a exported canvas (canvas can be referenced multiple times)*/
 	Layer::LooseHandle get_parent_paste_canvas_layer()const;
@@ -594,7 +597,7 @@ public:
 	**	\param surface		Pointer to Surface to render to.
 	**	\param quality		The requested quality-level to render at.
 	**	\param renddesc		The associated RendDesc.
-	**	\param cb			Pointer to callback object. May be NULL if there is no callback.
+	**	\param cb			Pointer to callback object. May be nullptr if there is no callback.
 	**	\return \c true on success, \c false on failure
 	**	\see Context::accelerated_render()
 	*/

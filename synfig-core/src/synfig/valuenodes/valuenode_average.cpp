@@ -2,20 +2,23 @@
 /*!	\file valuenode_average.cpp
 **	\brief Implementation of the "Average" valuenode conversion.
 **
-**	$Id$
-**
 **	\legal
 **	......... ... 2014 Ivan Mahonin
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -35,6 +38,7 @@
 #include <synfig/valuenode_registry.h>
 
 #include "valuenode_const.h"
+#include "synfig/general.h"
 
 #include <synfig/canvas.h>
 #include <synfig/valueoperations.h>
@@ -43,14 +47,13 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 
 /* === M A C R O S ========================================================= */
 
 /* === G L O B A L S ======================================================= */
 
-REGISTER_VALUENODE(ValueNode_Average, RELEASE_VERSION_1_0, "average", "Average")
+REGISTER_VALUENODE(ValueNode_Average, RELEASE_VERSION_1_0, "average", N_("Average"))
 
 /* === P R O C E D U R E S ================================================= */
 
@@ -83,14 +86,14 @@ ValueNode_Average::ValueNode_Average(Type &type, Canvas::LooseHandle canvas):
 ValueNode_Average::~ValueNode_Average() { }
 
 ValueNode_Average*
-ValueNode_Average::create(const ValueBase &value, Canvas::LooseHandle canvas)
+ValueNode_Average::create(const ValueBase& value, Canvas::LooseHandle canvas)
 	{ return new ValueNode_Average(value, canvas); }
 
 ValueBase
 ValueNode_Average::operator()(Time t)const
 {
-	if (getenv("SYNFIG_DEBUG_VALUENODE_OPERATORS"))
-		printf("%s:%d operator()\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_VALUENODE_OPERATORS",
+		"%s:%d operator()\n", __FILE__, __LINE__);
 	return ValueAverage::average( ValueNode_DynamicList::operator()(t), ValueBase(), ValueBase(get_type()));
 }
 

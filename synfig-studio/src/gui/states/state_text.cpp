@@ -2,22 +2,25 @@
 /*!	\file state_text.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **  Copyright (c) 2008 Chris Moore
 **  Copyright (c) 2010 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -61,12 +64,8 @@ using namespace studio;
 /* === M A C R O S ========================================================= */
 
 #ifndef LAYER_CREATION
-#define LAYER_CREATION(button, stockid, tooltip)	\
-	{ \
-		Gtk::Image *icon = manage(new Gtk::Image(Gtk::StockID(stockid), \
-			Gtk::ICON_SIZE_SMALL_TOOLBAR)); \
-		button.add(*icon); \
-	} \
+#define LAYER_CREATION(button, icon_name, tooltip)	\
+	button.set_image_from_icon_name(icon_name, Gtk::BuiltinIconSize::ICON_SIZE_SMALL_TOOLBAR); \
 	button.set_relief(Gtk::RELIEF_NONE); \
 	button.set_tooltip_text(tooltip); \
 	button.signal_toggled().connect(sigc::mem_fun(*this, \
@@ -219,63 +218,32 @@ StateText_Context::load_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		String value;
 		Vector v;
 
 		//parse the arguments yargh!
-		if(settings.get_value("text.id",value))
-			set_id(value);
-		else
-			set_id("Text");
+		set_id(settings.get_value("text.id", "Text"));
 
-		if(settings.get_value("text.blend",value) && value != "")
-			set_blend(atoi(value.c_str()));
-		else
-			set_blend(0);//(int)Color::BLEND_COMPOSITE); //0 should be blend composites value
+		set_blend(settings.get_value("text.blend", Color::BLEND_COMPOSITE));
 
-		if(settings.get_value("text.opacity",value))
-			set_opacity(atof(value.c_str()));
-		else
-			set_opacity(1);
+		set_opacity(settings.get_value("text.opacity", 1.0));
 
-		if(settings.get_value("text.paragraph",value) && value=="1")
-			set_paragraph_flag(true);
-		else
-			set_paragraph_flag(false);
+		set_paragraph_flag(settings.get_value("text.paragraph", false));
 
-		if(settings.get_value("text.size_x",value))
-			v[0] = atof(value.c_str());
-		else
-			v[0] = 0.25;
-		if(settings.get_value("text.size_y",value))
-			v[1] = atof(value.c_str());
-		else
-			v[1] = 0.25;
+		v[0] = settings.get_value("text.size_x", 0.25);
+		v[1] = settings.get_value("text.size_y", 0.25);
 		set_size(v);
 
-		if(settings.get_value("text.orient_x",value))
-			v[0] = atof(value.c_str());
-		else
-			v[0] = 0.5;
-		if(settings.get_value("text.orient_y",value))
-			v[1] = atof(value.c_str());
-		else
-			v[1] = 0.5;
+		v[0] = settings.get_value("text.orient_x", 0.5);
+		v[1] = settings.get_value("text.orient_y", 0.5);
 		set_orientation(v);
 
-		if(settings.get_value("text.family",value))
-			set_family(value);
-		else
-			set_family("Sans Serif");
+		set_family(settings.get_value("text.family", "Sans Serif"));
 
 		// since we have only text layer creation button, always turn it on.
-		if(settings.get_value("text.layer_text",value) && value=="0")
-			set_layer_text_flag(true);
-		else
-			set_layer_text_flag(true);
+//		set_layer_text_flag(settings.get_value("text.layer_text", true));
+		set_layer_text_flag(true);
 
-	  // determine layer flags
+		// determine layer flags
 		layer_text_flag = get_layer_text_flag();
 	}
 	catch(...)
@@ -289,16 +257,15 @@ StateText_Context::save_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
 		settings.set_value("text.id",get_id());
-		settings.set_value("text.layer_polygon",get_layer_text_flag()?"1":"0");
-		settings.set_value("text.blend",strprintf("%d",get_blend()));
-		settings.set_value("text.opacity",strprintf("%f",(float)get_opacity()));
-		settings.set_value("text.paragraph",get_paragraph_flag()?"1":"0");
-		settings.set_value("text.size_x",strprintf("%f",(float)get_size()[0]));
-		settings.set_value("text.size_y",strprintf("%f",(float)get_size()[1]));
-		settings.set_value("text.orient_x",strprintf("%f",(float)get_orientation()[0]));
-		settings.set_value("text.orient_y",strprintf("%f",(float)get_orientation()[1]));
+		settings.set_value("text.layer_polygon",get_layer_text_flag());
+		settings.set_value("text.blend",get_blend());
+		settings.set_value("text.opacity",get_opacity());
+		settings.set_value("text.paragraph",get_paragraph_flag());
+		settings.set_value("text.size_x",get_size()[0]);
+		settings.set_value("text.size_y",get_size()[1]);
+		settings.set_value("text.orient_x",get_orientation()[0]);
+		settings.set_value("text.orient_y",get_orientation()[1]);
 		settings.set_value("text.family",get_family());
 	}
 	catch(...)
@@ -390,7 +357,7 @@ StateText_Context::StateText_Context(CanvasView *canvasView):
 	layer_types_label.set_valign(Gtk::ALIGN_CENTER);
 
 	LAYER_CREATION(layer_text_togglebutton,
-		("synfig-layer_other_text"), _("Create a text layer"));
+		"layer_other_text_icon", _("Create a text layer"));
 
 	layer_text_togglebutton.get_style_context()->add_class("indentation");
 	layer_types_box.pack_start(layer_text_togglebutton, false, false, 0);
@@ -508,7 +475,7 @@ StateText_Context::refresh_tool_options()
 	App::dialog_tool_options->clear();
 	App::dialog_tool_options->set_widget(options_grid);
 	App::dialog_tool_options->set_local_name(_("Text Tool"));
-	App::dialog_tool_options->set_name("text");
+	App::dialog_tool_options->set_icon("tool_text_icon");
 }
 
 Smach::event_result
@@ -582,10 +549,11 @@ StateText_Context::make_text(const Point& _point)
 	blend_param_value.set_static(true);
 
 	String text;
-	if (get_paragraph_flag())
-		App::dialog_paragraph(_("Text Paragraph"), _("Enter text here:"), text);
-	else
+	if (get_paragraph_flag()) {
+		if (!App::dialog_paragraph(_("Text Paragraph"), _("Enter text here:"), text)) return;
+	} else {
 		if (!App::dialog_entry(_("Input text"), _("Text: "), text, _("Cancel"), _("Ok"))) return;
+	}
 
 	egress_on_selection_change=false;
 	layer=get_canvas_interface()->add_layer_to("text",canvas,depth);

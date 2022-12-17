@@ -1,8 +1,6 @@
 /* === S Y N F I G ========================================================= */
-/*!	\file trgt_png_spriteengine.cpp
+/*!	\file trgt_png_spritesheet.cpp
 **	\brief png_trgt Target Module
-**
-**	$Id$
 **
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
@@ -11,18 +9,21 @@
 **
 **  Based on trgt_png.cpp
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
-**	\endlegal
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
 **
-** === N O T E S ===========================================================
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
+**	\endlegal
 **
 ** ========================================================================= */
 
@@ -42,9 +43,11 @@
 #include "trgt_png_spritesheet.h"
 #include <png.h>
 #include <cstdio>
-#include <cstring> 
-#include <ETL/misc>
+#include <cstring>
+#include <ETL/stringf>
 #include <iostream>
+
+#include <synfig/misc.h>
 
 #endif
 
@@ -136,10 +139,10 @@ png_trgt_spritesheet::set_rend_desc(RendDesc *given_desc)
     desc=*given_desc;
     imagecount=desc.get_frame_start();
     lastimage=desc.get_frame_end();
-    numimages = (lastimage - imagecount) + 1;		
+    numimages = (lastimage - imagecount) + 1;
 
 	overflow_buff = new Color[desc.get_w()];
-	
+
 	//Reset on uninitialized values
 	if ((params.columns == 0) || (params.rows == 0))
 	{
@@ -160,6 +163,8 @@ png_trgt_spritesheet::set_rend_desc(RendDesc *given_desc)
 	
 	std::cout << "Frame count" << numimages << std::endl;
 
+	std::cout << "Frame count" << numimages << std::endl;
+
 	bool is_loaded = false;
 
 	if (params.append)
@@ -174,7 +179,7 @@ png_trgt_spritesheet::set_rend_desc(RendDesc *given_desc)
 				fclose(in_file_pointer);
 		}
 	}
-		
+
 	//I select such size which appropriate to contain whole sprite sheet.
 	unsigned int target_width = params.columns * desc.get_w() + params.offset_x;
 	unsigned int target_height = params.rows * desc.get_h() + params.offset_y;
@@ -190,17 +195,17 @@ png_trgt_spritesheet::set_rend_desc(RendDesc *given_desc)
 	std::cout << "Sheet size: " << sheet_width << "x" << sheet_height << std::endl;
 
 	std::cout << "Color size: " << sizeof(Color) << std::endl;
-	
+
 	color_data = new Color*[sheet_height];
 	if (color_data)
 		for (unsigned int i = 0; i < sheet_height; i++)
 			color_data[i] = new Color[sheet_width];
-	
+
 	if (is_loaded)
 		ready = read_png_file();
 	else
 		ready = true;
-	
+
     return true;
 }
 
@@ -208,7 +213,7 @@ void
 png_trgt_spritesheet::end_frame()
 {
 	std::cout << "end_frame()" << std::endl;
-		
+
     imagecount++;
 	cur_y = 0;
 	if (params.dir == TargetParam::HR)
@@ -244,7 +249,7 @@ png_trgt_spritesheet::start_frame(synfig::ProgressCallback *callback)
 	}
 
     if(callback)
-		callback->task(strprintf("%s, (frame %d/%d)", filename.c_str(), 
+		callback->task(strprintf("%s, (frame %d/%d)", filename.c_str(),
 		                         imagecount - (lastimage - numimages), numimages).c_str());
     return true;
 }
@@ -256,7 +261,7 @@ png_trgt_spritesheet::start_scanline(int /*scanline*/)
 	unsigned int x = cur_col * desc.get_w() + params.offset_x;
 	if ((x + desc.get_w() > sheet_width) || (y > sheet_height) || !color_data)
 	{
-		std::cout << "Buffer overflow. x: " << x << " y: " << y << std::endl; 
+		std::cout << "Buffer overflow. x: " << x << " y: " << y << std::endl;
 		//TODO: Fix exception processing outside the module.
 		return overflow_buff; //Spike. Bad exception processing
 	}
@@ -287,7 +292,7 @@ png_trgt_spritesheet::load_png_file()
 	}
 
     /* initialize stuff */
-    in_image.png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	in_image.png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
 
     if (!in_image.png_ptr)
 	{
@@ -332,7 +337,7 @@ png_trgt_spritesheet::load_png_file()
 	return true;
 }
 
-bool 
+bool
 png_trgt_spritesheet::read_png_file()
 {
 	std::cout << "read_png_file()" << std::endl;
@@ -342,10 +347,10 @@ png_trgt_spritesheet::read_png_file()
     for (unsigned int y = 0; y < in_image.height; y++)
             row_pointers[y] = new png_byte[png_get_rowbytes(in_image.png_ptr,in_image.info_ptr)];
 	std::cout << "row_pointers created" << std::endl;
-	
+
 	png_read_image(in_image.png_ptr, row_pointers);
 	std::cout << "image read" << std::endl;
-	
+
     if (png_get_color_type(in_image.png_ptr, in_image.info_ptr) == PNG_COLOR_TYPE_RGB)
 	{
         synfig::error("[process_file] input file is PNG_COLOR_TYPE_RGB but must be PNG_COLOR_TYPE_RGBA "
@@ -364,10 +369,10 @@ png_trgt_spritesheet::read_png_file()
 
 	//From png bytes to synfig::Color conversion
 	const ColorReal k = 1/255.0;
-    for (unsigned int y = 0; y < in_image.height; y++) 
+    for (unsigned int y = 0; y < in_image.height; y++)
 	{
         png_byte* row = row_pointers[y];
-        for (unsigned int x = 0; x < in_image.width; x++) 
+        for (unsigned int x = 0; x < in_image.width; x++)
 		{
             png_byte* ptr = &(row[x*4]);
 			color_data[y][x].set_r(ptr[0]*k);
@@ -378,62 +383,62 @@ png_trgt_spritesheet::read_png_file()
     }
 
 	std::cout << "colors converted" << std::endl;
-	
+
     for (unsigned int y = 0; y < in_image.height; y++)
             delete []row_pointers[y];
-    
+
 	delete[] row_pointers;
 	std::cout << "row_pointers deleted" << std::endl;
 	return true;
 }
 
-bool 
+bool
 png_trgt_spritesheet::write_png_file()
 {
 	std::cout << "write_png_file()" << std::endl;
 	png_structp png_ptr;
 	png_infop info_ptr;
 
-	
+
     if (filename == "-")
     	out_file_pointer=stdout;
     else
     	out_file_pointer=g_fopen(filename.c_str(), POPEN_BINARY_WRITE_TYPE);
 
-	
+
     png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING, (png_voidp)this,png_out_error, png_out_warning);
     if (!png_ptr)
     {
         synfig::error("Unable to setup PNG struct");
         fclose(out_file_pointer);
-        out_file_pointer=NULL;
+		out_file_pointer=nullptr;
         return false;
     }
 
-	
+
     info_ptr= png_create_info_struct(png_ptr);
     if (!info_ptr)
     {
         synfig::error("Unable to setup PNG info struct");
         fclose(out_file_pointer);
-        out_file_pointer=NULL;
-        png_destroy_write_struct(&png_ptr,(png_infopp)NULL);
+		out_file_pointer=nullptr;
+		png_destroy_write_struct(&png_ptr,(png_infopp)nullptr);
         return false;
     }
 
-	
+
     if (setjmp(png_jmpbuf(png_ptr)))
     {
         synfig::error("Unable to setup longjump");
         png_destroy_write_struct(&png_ptr, &info_ptr);
         fclose(out_file_pointer);
-        out_file_pointer=NULL;
+		out_file_pointer=nullptr;
         return false;
     }
     png_init_io(png_ptr,out_file_pointer);
     png_set_filter(png_ptr,0,PNG_FILTER_NONE);
 
-	
+
     setjmp(png_jmpbuf(png_ptr));
 
 	png_set_IHDR(png_ptr,info_ptr,
@@ -498,7 +503,7 @@ png_trgt_spritesheet::write_png_file()
         png_write_end(png_ptr,info_ptr);
         png_destroy_write_struct(&png_ptr, &info_ptr);
         fclose(out_file_pointer);
-        out_file_pointer=NULL;
+		out_file_pointer=nullptr;
 
     }
 	return true;

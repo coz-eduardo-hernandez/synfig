@@ -1,8 +1,6 @@
 /* === S Y N F I G ========================================================= */
-/*!	\file ValueNode_Real.cpp
+/*!	\file valuenode_real.cpp
 **	\brief Implementation of the "Real" valuenode conversion.
-**
-**	$Id$
 **
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
@@ -10,15 +8,20 @@
 **  Copyright (c) 2011 Carlos López
 **  Copyright (c) 2013 Konstantin Dmitriev
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -37,21 +40,18 @@
 #include <synfig/general.h>
 #include <synfig/localization.h>
 #include <synfig/valuenode_registry.h>
-#include <ETL/misc>
-#include <ETL/stringf>
 
 #endif
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 
 /* === M A C R O S ========================================================= */
 
 /* === G L O B A L S ======================================================= */
 
-REGISTER_VALUENODE(ValueNode_Real, RELEASE_VERSION_0_64_0, "fromreal", "Real")
+REGISTER_VALUENODE(ValueNode_Real, RELEASE_VERSION_0_64_0, "fromreal", N_("Real"))
 
 /* === P R O C E D U R E S ================================================= */
 
@@ -65,8 +65,7 @@ ValueNode_Real::ValueNode_Real(Type &x):
 ValueNode_Real::ValueNode_Real(const ValueBase &x):
 	LinkableValueNode(x.get_type())
 {
-	Vocab ret(get_children_vocab());
-	set_children_vocab(ret);
+	init_children_vocab();
 	Type &type(x.get_type());
 	if (type == type_angle)
 		set_link("link", ValueNode_Const::create(Angle::deg(x.get(Angle())).get()));
@@ -87,7 +86,7 @@ ValueNode_Real::ValueNode_Real(const ValueBase &x):
 }
 
 ValueNode_Real*
-ValueNode_Real::create(const ValueBase &x)
+ValueNode_Real::create(const ValueBase& x, etl::loose_handle<Canvas>)
 {
 	return new ValueNode_Real(x);
 }
@@ -128,8 +127,8 @@ ValueNode_Real::get_link_vfunc(int i)const
 ValueBase
 ValueNode_Real::operator()(Time t)const
 {
-	if (getenv("SYNFIG_DEBUG_VALUENODE_OPERATORS"))
-		printf("%s:%d operator()\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_VALUENODE_OPERATORS",
+		"%s:%d operator()\n", __FILE__, __LINE__);
 
 	float real = (*real_)(t).get(float());
 

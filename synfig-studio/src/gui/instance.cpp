@@ -1,8 +1,6 @@
 /* === S Y N F I G ========================================================= */
-/*!	\file gtkmm/instance.cpp
+/*!	\file gui/instance.cpp
 **	\brief writeme
-**
-**	$Id$
 **
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
@@ -11,15 +9,20 @@
 **	Copyright (c) 2009 Nikita Kitaev
 **	Copyright (c) 2012 Konstantin Dmitriev
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -48,6 +51,8 @@
 #include <gtkmm/separatormenuitem.h>
 #include <gtkmm/stock.h>
 
+#include <ETL/stringf>
+
 #include <gui/app.h>
 #include <gui/autorecover.h>
 #include <gui/canvasview.h>
@@ -70,6 +75,8 @@
 #include <synfig/widthpoint.h>
 #include <synfig/zstreambuf.h>
 
+#include <synfigapp/main.h>
+
 #include <sys/stat.h>
 
 #endif
@@ -77,7 +84,6 @@
 using namespace etl;
 using namespace synfig;
 using namespace studio;
-using namespace sigc;
 
 /* === M A C R O S ========================================================= */
 
@@ -86,6 +92,18 @@ using namespace sigc;
 int studio::Instance::instance_count_=0;
 
 /* === P R O C E D U R E S ================================================= */
+
+static Gtk::Image*
+create_image_from_icon(const std::string& icon_name, Gtk::IconSize icon_size)
+{
+#if GTK_CHECK_VERSION(3,24,0)
+	return new Gtk::Image(icon_name, icon_size);
+#else
+	Gtk::Image* image = new Gtk::Image();
+	image->set_from_icon_name(icon_name, icon_size);
+	return image;
+#endif
+}
 
 /* === M E T H O D S ======================================================= */
 
@@ -97,6 +115,8 @@ Instance::Instance(synfig::Canvas::Handle canvas, synfig::FileSystem::Handle con
 	redo_status_(false)
 {
 	id_=instance_count_++;
+
+	set_clear_redo_stack_on_new_action(true);
 
 	// Connect up all the signals
 	signal_filename_changed().connect(sigc::mem_fun(*this,&studio::Instance::update_all_titles));
@@ -112,11 +132,11 @@ Instance::~Instance()
 }
 
 // this function returns true if the given extension belongs to image layer type
-bool Instance::is_img(synfig::String ext) const
+static bool
+is_img(const synfig::String& filename)
 {
-		std::set <String> img_ext{".jpg",".jpeg",".png",".bmp",".gif"};
-		bool is_in = img_ext.find(ext) != img_ext.end();
-		return is_in;
+	static const std::set<String> img_ext{".jpg",".jpeg",".png",".bmp",".gif",".tiff",".tif",".dib",".ppm",".pbm",".pgm",".pnm",".webp"};
+	return img_ext.find(Glib::ustring(etl::filename_extension(filename)).lowercase()) != img_ext.end();
 }
 
 synfig::Layer::Handle
@@ -156,6 +176,12 @@ Instance::create(synfig::Canvas::Handle canvas, synfig::FileSystem::Handle conta
 {
 	// Construct a new instance
 	handle<Instance> instance(new Instance(canvas, container));
+
+	// Set the user preference regarding redo-history behavior
+	{
+		bool active = synfigapp::Main::settings().get_value("pref.clear_redo_stack_on_new_action", true);
+		instance->set_clear_redo_stack_on_new_action(active);
+	}
 
 	// Add the new instance to the application's instance list
 	App::instance_list.push_back(instance);
@@ -232,8 +258,8 @@ studio::Instance::run_plugin(std::string plugin_id, bool modify_canvas, std::vec
 		int answer = uim->confirmation(
 					message,
 					details,
-					_("Cancel"),
 					_("Proceed"),
+					_("Cancel"),
 					synfigapp::UIInterface::RESPONSE_OK);
 
 		if(answer != synfigapp::UIInterface::RESPONSE_OK)
@@ -304,7 +330,7 @@ studio::Instance::run_plugin(std::string plugin_id, bool modify_canvas, std::vec
 		else
 		{
 			if (filename_ext == ".sifz")
-				stream_in = new ZReadStream(stream_in);
+				stream_in = new ZReadStream(stream_in, synfig::zstreambuf::gzip);
 
 			FileSystem::WriteStream::Handle outfile = FileSystemNative::instance()->get_write_stream(filename_processed);
 			*outfile << stream_in->rdbuf();
@@ -369,7 +395,7 @@ studio::Instance::save_as(const synfig::String &file_name)
 	if(synfigapp::Instance::save_as(file_name))
 	{
 		// after changing the filename, update the render settings with the new filename
-		for(std::list<handle<CanvasView> >::iterator iter = canvas_view_list().begin(); iter!=canvas_view_list().end(); iter++)
+		for (std::list<handle<CanvasView> >::iterator iter = canvas_view_list().begin(); iter!=canvas_view_list().end(); iter++)
 			(*iter)->render_settings.set_entry_filename();
 		App::add_recent_file(etl::handle<Instance>(this));
 
@@ -449,11 +475,10 @@ studio::Instance::dialog_save_as()
 
 	{
 		OneMoment one_moment;
-		std::set<Node*>::iterator iter;
-		for(iter=canvas->parent_set.begin();iter!=canvas->parent_set.end();++iter)
+		bool problematic = false;
+		canvas->foreach_parent([=, &problematic](Node* node)
 		{
-			synfig::Node* node(*iter);
-			for(;!node->parent_set.empty();node=*node->parent_set.begin())
+			for(;node->parent_count();node=node->get_first_parent())
 			{
 				Layer::Handle parent_layer(dynamic_cast<Layer*>(node));
 				if(parent_layer && parent_layer->get_canvas()->get_root()!=get_canvas())
@@ -469,12 +494,16 @@ studio::Instance::dialog_save_as()
 							"details",
 							_("Close"));
 
-					return false;
+					problematic = true;
+					return true;
 				}
 				if(parent_layer)
 					break;
 			}
-		}
+			return false;
+		});
+		if (problematic)
+			return false;
 	}
 
 	if (has_real_filename())
@@ -800,6 +829,7 @@ Instance::safe_close()
 						_("Close without Saving"),
 						_("Cancel"),
 						_("Save"),
+						true,
 						synfigapp::UIInterface::RESPONSE_YES
 			);
 
@@ -977,8 +1007,8 @@ Instance::add_actions_to_menu(Gtk::Menu *menu, const synfigapp::Action::ParamLis
 void
 Instance::process_action(synfig::String name, synfigapp::Action::ParamList param_list)
 {
-	if (getenv("SYNFIG_DEBUG_ACTIONS"))
-		synfig::info("%s:%d process_action: '%s'", __FILE__, __LINE__, name.c_str());
+	DEBUG_LOG("SYNFIG_DEBUG_ACTIONS",
+		"%s:%d process_action: '%s'", __FILE__, __LINE__, name.c_str());
 
 	assert(synfigapp::Action::book().count(name));
 
@@ -1082,7 +1112,7 @@ Instance::make_param_menu(Gtk::Menu *menu,synfig::Canvas::Handle canvas, synfiga
 	if(!canvas_interface)
 		return;
 
-	Gtk::MenuItem *item = NULL;
+	Gtk::MenuItem* item = nullptr;
 
 	synfigapp::Action::ParamList param_list,param_list2;
 	param_list=canvas_interface->generate_param_list(value_desc);
@@ -1124,7 +1154,7 @@ Instance::make_param_menu(Gtk::Menu *menu,synfig::Canvas::Handle canvas, synfiga
 		{
 			if(iter->second.check_type(value_desc.get_value_type()))
 			{
-				item = Gtk::manage(new Gtk::MenuItem(iter->second.local_name));
+				item = Gtk::manage(new Gtk::MenuItem(iter->second.get_local_name()));
 				item->signal_activate().connect(
 					sigc::hide_return(
 						sigc::bind(
@@ -1174,10 +1204,22 @@ Instance::make_param_menu(Gtk::Menu *menu,synfig::Canvas::Handle canvas, synfiga
 		param_interpolation_menu->append(*item);
 		param_list.erase("new_value");
 
-		#define ADD_IMAGE_MENU_ITEM(Interpolation, StockId, Text) \
+		Gtk::Image *image;
+
+#if GTK_CHECK_VERSION(3,24,0)
+	#define CREATE_IMAGE(ImageVar, IconName, IconSize) \
+		ImageVar = manage(new Gtk::Image(IconName, IconSize));
+#else
+	#define CREATE_IMAGE(ImageVar, IconName, IconSize) \
+		ImageVar = manage(new Gtk::Image()); \
+		ImageVar->set_from_icon_name(IconName, IconSize);
+#endif
+
+		#define ADD_IMAGE_MENU_ITEM(Interpolation, IconName, Text) \
 		param_list.add("new_value", Interpolation); \
+		CREATE_IMAGE(image, IconName, Gtk::IconSize::from_name("synfig-small_icon")); \
 		item = Gtk::manage(new Gtk::ImageMenuItem( \
-			*Gtk::manage(new Gtk::Image(Gtk::StockID(StockId), Gtk::IconSize::from_name("synfig-small_icon"))), \
+			*image, \
 			_(Text) )); \
 		item->signal_activate().connect( \
 			sigc::bind( \
@@ -1190,12 +1232,13 @@ Instance::make_param_menu(Gtk::Menu *menu,synfig::Canvas::Handle canvas, synfiga
 		param_list.erase("new_value");
 
 
-		ADD_IMAGE_MENU_ITEM(INTERPOLATION_CLAMPED, "synfig-interpolation_type_clamped", _("Clamped"));
-		ADD_IMAGE_MENU_ITEM(INTERPOLATION_TCB, "synfig-interpolation_type_tcb", _("TCB"));
-		ADD_IMAGE_MENU_ITEM(INTERPOLATION_CONSTANT, "synfig-interpolation_type_const", _("Constant"));
-		ADD_IMAGE_MENU_ITEM(INTERPOLATION_HALT, "synfig-interpolation_type_ease", _("Ease"));
-		ADD_IMAGE_MENU_ITEM(INTERPOLATION_LINEAR, "synfig-interpolation_type_linear", _("Linear"));
+		ADD_IMAGE_MENU_ITEM(INTERPOLATION_CLAMPED, "interpolation_type_clamped_icon", _("Clamped"));
+		ADD_IMAGE_MENU_ITEM(INTERPOLATION_TCB, "interpolation_type_tcb_icon", _("TCB"));
+		ADD_IMAGE_MENU_ITEM(INTERPOLATION_CONSTANT, "interpolation_type_const_icon", _("Constant"));
+		ADD_IMAGE_MENU_ITEM(INTERPOLATION_HALT, "interpolation_type_ease_icon", _("Ease"));
+		ADD_IMAGE_MENU_ITEM(INTERPOLATION_LINEAR, "interpolation_type_linear_icon", _("Linear"));
 
+		#undef CREATE_IMAGE
 		#undef ADD_IMAGE_MENU_ITEM
 
 		item = Gtk::manage(new Gtk::MenuItem(_("Interpolation")));
@@ -1216,7 +1259,9 @@ Instance::make_param_menu(Gtk::Menu *menu,synfig::Canvas::Handle canvas, synfiga
 			param_list.add("selected_value_desc",selected_value_desc);
 	}
 
-	param_list.add("child",canvas_view->get_work_area()->get_active_bone_value_node());
+	if (std::string("bone") == canvas_view->get_smach().get_state_name()) {
+		param_list.add("active_bone", canvas_view->get_work_area()->get_active_bone_value_node());
+	}
 
 	if(param_list2.empty())
 		add_actions_to_menu(&parammenu, param_list,categories);
@@ -1272,10 +1317,10 @@ Instance::make_param_menu(Gtk::Menu *menu,synfig::Canvas::Handle canvas, synfiga
 		parammenu.append(*item);
 
 
-		#define ADD_IMAGE_MENU_ITEM(Type, StockId, Text) \
+		#define ADD_IMAGE_MENU_ITEM(Type, icon_name, Text) \
 			param_list.add("new_value", ValueBase((int)WidthPoint::Type)); \
 			item = Gtk::manage(new Gtk::ImageMenuItem( \
-				*Gtk::manage(new Gtk::Image(Gtk::StockID(StockId),Gtk::IconSize::from_name("synfig-small_icon"))), \
+				*Gtk::manage(create_image_from_icon(icon_name, Gtk::IconSize::from_name("synfig-small_icon"))), \
 				_(Text) )); \
 			item->signal_activate().connect( \
 				sigc::bind( \
@@ -1290,13 +1335,13 @@ Instance::make_param_menu(Gtk::Menu *menu,synfig::Canvas::Handle canvas, synfiga
 		////// Before //////////////////
 		param_list.add("value_desc",synfigapp::ValueDesc(wpoint_composite, wpoint_composite->get_link_index_from_name("side_before")));
 
-		ADD_IMAGE_MENU_ITEM(TYPE_INTERPOLATE, "synfig-interpolate_interpolation", "Cusp Before: Interpolate")
-		ADD_IMAGE_MENU_ITEM(TYPE_ROUNDED, "synfig-rounded_interpolation", "Cusp Before: Rounded")
-		ADD_IMAGE_MENU_ITEM(TYPE_SQUARED, "synfig-squared_interpolation", "Cusp Before: Squared")
-		ADD_IMAGE_MENU_ITEM(TYPE_PEAK, "synfig-peak_interpolation", "Cusp Before: Peak")
-		ADD_IMAGE_MENU_ITEM(TYPE_FLAT, "synfig-flat_interpolation", "Cusp Before: Flat")
-		ADD_IMAGE_MENU_ITEM(TYPE_INNER_ROUNDED, "synfig-rounded_interpolation", "Cusp Before: Inner Rounded")
-		ADD_IMAGE_MENU_ITEM(TYPE_INNER_PEAK, "synfig-peak_interpolation", "Cusp Before: Off-Peak")
+		ADD_IMAGE_MENU_ITEM(TYPE_INTERPOLATE, "action_interpolate_interpolation_icon", _("Cusp Before: Interpolate"))
+		ADD_IMAGE_MENU_ITEM(TYPE_ROUNDED, "action_rounded_interpolation_icon", _("Cusp Before: Rounded"))
+		ADD_IMAGE_MENU_ITEM(TYPE_SQUARED, "action_squared_interpolation_icon", _("Cusp Before: Squared"))
+		ADD_IMAGE_MENU_ITEM(TYPE_PEAK, "action_peak_interpolation_icon", _("Cusp Before: Peak"))
+		ADD_IMAGE_MENU_ITEM(TYPE_FLAT, "action_flat_interpolation_icon", _("Cusp Before: Flat"))
+		ADD_IMAGE_MENU_ITEM(TYPE_INNER_ROUNDED, "action_innerrounded_interpolation_icon", _("Cusp Before: Inner Rounded"))
+		ADD_IMAGE_MENU_ITEM(TYPE_INNER_PEAK, "action_offpeak_interpolation_icon", _("Cusp Before: Off-Peak"))
 
 		///////
 		item = Gtk::manage(new Gtk::SeparatorMenuItem());
@@ -1307,13 +1352,13 @@ Instance::make_param_menu(Gtk::Menu *menu,synfig::Canvas::Handle canvas, synfiga
 		param_list.erase("value_desc");
 		param_list.add("value_desc",synfigapp::ValueDesc(wpoint_composite, wpoint_composite->get_link_index_from_name("side_after")));
 
-		ADD_IMAGE_MENU_ITEM(TYPE_INTERPOLATE, "synfig-interpolate_interpolation", "Cusp After: Interpolate")
-		ADD_IMAGE_MENU_ITEM(TYPE_ROUNDED, "synfig-rounded_interpolation", "Cusp After: Rounded")
-		ADD_IMAGE_MENU_ITEM(TYPE_SQUARED, "synfig-squared_interpolation", "Cusp After: Squared")
-		ADD_IMAGE_MENU_ITEM(TYPE_PEAK, "synfig-peak_interpolation", "Cusp After: Peak")
-		ADD_IMAGE_MENU_ITEM(TYPE_FLAT, "synfig-flat_interpolation", "Cusp After: Flat")
-		ADD_IMAGE_MENU_ITEM(TYPE_INNER_ROUNDED, "synfig-rounded_interpolation", "Cusp After: Inner Rounded")
-		ADD_IMAGE_MENU_ITEM(TYPE_INNER_PEAK, "synfig-peak_interpolation", "Cusp After: Off-Peak")
+		ADD_IMAGE_MENU_ITEM(TYPE_INTERPOLATE, "action_interpolate_interpolation_icon", _("Cusp After: Interpolate"))
+		ADD_IMAGE_MENU_ITEM(TYPE_ROUNDED, "action_rounded_interpolation_icon", _("Cusp After: Rounded"))
+		ADD_IMAGE_MENU_ITEM(TYPE_SQUARED, "action_squared_interpolation_icon", _("Cusp After: Squared"))
+		ADD_IMAGE_MENU_ITEM(TYPE_PEAK, "action_peak_interpolation_icon", _("Cusp After: Peak"))
+		ADD_IMAGE_MENU_ITEM(TYPE_FLAT, "action_flat_interpolation_icon", _("Cusp After: Flat"))
+		ADD_IMAGE_MENU_ITEM(TYPE_INNER_ROUNDED, "action_innerrounded_interpolation_icon", _("Cusp After: Inner Rounded"))
+		ADD_IMAGE_MENU_ITEM(TYPE_INNER_PEAK, "action_offpeak_interpolation_icon", _("Cusp After: Off-Peak"))
 
 		///////
 		item = Gtk::manage(new Gtk::SeparatorMenuItem());
@@ -1520,7 +1565,7 @@ Instance::gather_uri(std::set<synfig::String> &x, const synfig::ValueNode::Handl
 
 	Time t = value_node->get_parent_canvas()->get_time();
 
-	ParamVocab vocab = linkable_value_node->get_children_vocab();
+	const ParamVocab& vocab = linkable_value_node->get_children_vocab();
 	for(ParamVocab::const_iterator i = vocab.begin(); i != vocab.end(); ++i)
 	{
 		ValueNode::Handle child_node = linkable_value_node->get_link(i->get_name());
@@ -1643,10 +1688,10 @@ Instance::add_special_layer_actions_to_menu(Gtk::Menu *menu, const synfigapp::Se
 	gather_uri(uris, layers);
 	for(std::map<String, String>::const_iterator i = uris.begin(); i != uris.end(); ++i)
 	{
-		if(is_img(filename_extension(i->second)))// check if layer is image
+		if(is_img(i->second))// check if layer is image
 		{
 			Gtk::MenuItem *item = manage(new Gtk::ImageMenuItem(Gtk::Stock::OPEN));
-			item->set_label( (String(_("Edit image in external tool..."))).c_str() );
+			item->set_label(_("Edit image in external tool..."));
 			item->signal_activate().connect(
 				sigc::bind(sigc::ptr_fun(&App::open_img_in_external), i->second) );
 			item->show();
@@ -1655,7 +1700,7 @@ Instance::add_special_layer_actions_to_menu(Gtk::Menu *menu, const synfigapp::Se
 		else
 		{
 			Gtk::MenuItem *item = manage(new Gtk::ImageMenuItem(Gtk::Stock::OPEN));
-			item->set_label( (String(_("Open file")) + " '" + i->first + "'").c_str() );
+			item->set_label(strprintf(_("Open file '%s'"), i->first.c_str()));
 			item->signal_activate().connect(
 				sigc::bind(sigc::ptr_fun(&App::open_uri), i->second) );
 			item->show();
@@ -1699,11 +1744,11 @@ Instance::add_special_layer_actions_to_group(const Glib::RefPtr<Gtk::ActionGroup
 	int index = 0;
 	for(std::map<String, String>::const_iterator i = uris.begin(); i != uris.end(); ++i, ++index)
 	{
-		String action_name = etl::strprintf("special-action-open-file-%d", index);
+		String action_name = synfig::strprintf("special-action-open-file-%d", index);
 		//if the import layer is type image 
-		if(is_img(filename_extension(i->second)))
+		if(is_img(i->second))
 		{
-			String local_name = String(_("Edit image in external tool..."));
+			String local_name = _("Edit image in external tool...");
 			action_group->add(
 				Gtk::Action::create(
 					action_name,
@@ -1714,7 +1759,7 @@ Instance::add_special_layer_actions_to_group(const Glib::RefPtr<Gtk::ActionGroup
 		}
 		else
 		{
-			String local_name = String(_("Open file")) + " '" + i->first + "'";
+			String local_name = strprintf(_("Open file '%s'"), i->first.c_str());
 			action_group->add(
 				Gtk::Action::create(
 					action_name,
@@ -1727,7 +1772,7 @@ Instance::add_special_layer_actions_to_group(const Glib::RefPtr<Gtk::ActionGroup
 	if(layers.size()==1)
 	{
 		String local_name2 = String(_("Convert to Vector"));
-		String action_name2 = etl::strprintf("special-action-open-file-vectorizer-%d",index);
+		String action_name2 = synfig::strprintf("special-action-open-file-vectorizer-%d",index);
 		if(etl::handle<Layer_Switch> reference_layer = etl::handle<Layer_Switch>::cast_dynamic(layers.front()))
 		{
 			//the layer selected is a switch group

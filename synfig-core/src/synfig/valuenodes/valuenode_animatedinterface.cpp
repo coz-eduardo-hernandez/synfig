@@ -1,22 +1,25 @@
 /* === S Y N F I G ========================================================= */
-/*!	\file valuenode_animatedbase.cpp
-**	\brief Implementation of the "Animated" valuenode conversion.
-**
-**	$Id$
+/*!	\file valuenode_animatedinterface.cpp
+**	\brief Implementation of the "Animated" valuenode interface.
 **
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -38,14 +41,13 @@
 #include <list>
 #include <stdexcept>
 
-#include <ETL/bezier>
-#include <ETL/hermite>
 #include <ETL/handle>
-#include <ETL/misc>
 
+#include <synfig/bezier.h>
 #include <synfig/canvas.h>
 #include <synfig/general.h>
 #include <synfig/localization.h>
+#include <synfig/misc.h>
 #include <synfig/exception.h>
 #include <synfig/gradient.h>
 
@@ -56,7 +58,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 
 /* === M A C R O S ========================================================= */
@@ -78,32 +79,32 @@ struct timecmp
 };
 
 template<class T>
-struct subtractor: public std::binary_function<T, T, T>
+struct subtractor
 	{ T operator()(const T &a,const T &b)const { return a-b; } };
 
 template<>
-struct subtractor<Angle>: public std::binary_function<Angle, Angle, Angle>
+struct subtractor<Angle>
 	{ Angle operator()(const Angle &a,const Angle &b)const { return a.dist(b); } };
 
 
 template<class T>
-struct magnitude: public std::unary_function<float, T>
+struct magnitude
 	{ float operator()(const T &a)const { return std::fabs(a); } };
 
 template<>
-struct magnitude<Angle>: public std::unary_function<float, Angle>
+struct magnitude<Angle>
 	{ float operator()(const Angle &a)const { return std::fabs(Angle::rad(a).get()); } };
 
 template<>
-struct magnitude<Vector>: public std::unary_function<float, Vector>
+struct magnitude<Vector>
 	{ float operator()(const Vector &a)const { return a.mag(); } };
 
 template<>
-struct magnitude<Color>: public std::unary_function<float, Color>
+struct magnitude<Color>
 	{ float operator()(const Color &a)const { return std::fabs(a.get_y()); } };
 
 template<>
-struct magnitude<Gradient> : public std::unary_function<float, Gradient>
+struct magnitude<Gradient>
 	{ float operator()(const Gradient &a)const { return a.mag(); } };
 
 
@@ -307,8 +308,8 @@ public:
 			is_angle_type<value_type> is_angle;
 			subtractor<value_type> subtract_func;
 
-			mutable etl::hermite<Time, Time> first;
-			mutable etl::hermite<value_type, Time> second;
+			mutable hermite<Time, Time> first;
+			mutable hermite<value_type, Time> second;
 			WaypointList::iterator start;
 			WaypointList::iterator end;
 
@@ -395,8 +396,8 @@ public:
 
 		virtual void on_changed()
 		{
-			if (getenv("SYNFIG_DEBUG_ON_CHANGED"))
-				printf("%s:%d _Hermite::on_changed()\n", __FILE__, __LINE__);
+			DEBUG_LOG("SYNFIG_DEBUG_ON_CHANGED",
+				"%s:%d _Hermite::on_changed()\n", __FILE__, __LINE__);
 
 			if(animated.waypoint_list_.size()<=1)
 				return;
@@ -726,8 +727,8 @@ public:
 
 		virtual void on_changed()
 		{
-			if (getenv("SYNFIG_DEBUG_ON_CHANGED"))
-				printf("%s:%d _Constant::on_changed()\n", __FILE__, __LINE__);
+			DEBUG_LOG("SYNFIG_DEBUG_ON_CHANGED",
+				"%s:%d _Constant::on_changed()\n", __FILE__, __LINE__);
 
 			if(animated.waypoint_list_.size()<=1)
 				return;
@@ -817,8 +818,8 @@ public:
 
 		virtual void on_changed()
 		{
-			if (getenv("SYNFIG_DEBUG_ON_CHANGED"))
-				printf("%s:%d _AnimBool::on_changed()\n", __FILE__, __LINE__);
+			DEBUG_LOG("SYNFIG_DEBUG_ON_CHANGED",
+				"%s:%d _AnimBool::on_changed()\n", __FILE__, __LINE__);
 
 			if(animated.waypoint_list_.size()<=1)
 				return;
@@ -859,7 +860,7 @@ public:
 ValueNode_AnimatedInterfaceConst::ValueNode_AnimatedInterfaceConst(ValueNode &node):
 	ValueNode_Interface(node),
 	interpolation_(INTERPOLATION_UNDEFINED),
-	interpolator_(NULL)
+	interpolator_(nullptr)
 {
 	interpolator_ = new Internal::Constant<ValueBase>(*this);
 }

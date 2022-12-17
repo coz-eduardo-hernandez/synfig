@@ -2,22 +2,25 @@
 /*!	\file plant.cpp
 **	\brief Implementation of the "Plant" layer
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **	Copyright (c) 2011 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -31,28 +34,28 @@
 #	include <config.h>
 #endif
 
+#include "plant.h"
+
+#include <cmath> // std::ceil()
+
 #include <synfig/localization.h>
 #include <synfig/general.h>
 
 #include <synfig/angle.h>
-#include "plant.h"
-#include <synfig/string.h>
+#include <synfig/bezier.h>
 #include <synfig/context.h>
 #include <synfig/paramdesc.h>
 #include <synfig/renddesc.h>
+#include <synfig/string.h>
 #include <synfig/surface.h>
 #include <synfig/value.h>
 #include <synfig/valuenode.h>
 
-#include <ETL/calculus>
-#include <ETL/hermite>
 #include <vector>
 
 #include <synfig/valuenodes/valuenode_bline.h>
 
 #endif
-
-using namespace etl;
 
 /* === M A C R O S ========================================================= */
 
@@ -97,7 +100,7 @@ Plant::Plant():
 {
 	bounding_rect=Rect::zero();
 	Random random;
-	random.set_seed(time(NULL));
+	random.set_seed(time(nullptr));
 	param_random.set(random.get_seed());
 	
 	std::vector<BLinePoint> bline;
@@ -235,7 +238,7 @@ Plant::sync()const
 
 	std::vector<synfig::BLinePoint>::const_iterator iter,next;
 
-	etl::hermite<Vector> curve;
+	hermite<Vector> curve;
 
 	Real step(std::fabs(step_));
 
@@ -257,7 +260,6 @@ Plant::sync()const
 		curve.p2()=next->get_vertex();
 		curve.t2()=next->get_tangent1();
 		curve.sync();
-		etl::derivative<etl::hermite<Vector> > deriv(curve);
 
 		Real f;
 
@@ -277,7 +279,7 @@ Plant::sync()const
 			stunt_growth*=stunt_growth;
 
 			if((((i+1)*sprouts + steps/2) / steps) > branch_count) {
-				Vector branch_velocity(deriv(f).norm()*velocity + deriv(f).perp().norm()*perp_velocity);
+				Vector branch_velocity(curve.derivative(f).norm()*velocity + curve.derivative(f).perp().norm()*perp_velocity);
 
 				if (std::isnan(branch_velocity[0]) || std::isnan(branch_velocity[1]))
 					continue;
@@ -586,6 +588,9 @@ Plant::draw_particles(Surface *dest_surface, const RendDesc &renddesc)const
 			float x2f=(particle->point[0]-tl[0])/pw+(scaled_radius*0.5);
 			float y1f=(particle->point[1]-tl[1])/ph-(scaled_radius*0.5);
 			float y2f=(particle->point[1]-tl[1])/ph+(scaled_radius*0.5);
+			const auto ceil_to_int = [](float num) -> int {
+				return static_cast<int>(std::ceil(num));
+			};
 			x1=ceil_to_int(x1f);
 			x2=ceil_to_int(x2f)-1;
 			y1=ceil_to_int(y1f);

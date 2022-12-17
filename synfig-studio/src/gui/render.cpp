@@ -1,22 +1,25 @@
 /* === S Y N F I G ========================================================= */
-/*!	\file gtkmm/render.cpp
+/*!	\file gui/render.cpp
 **	\brief Template File
-**
-**	$Id$
 **
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -42,6 +45,8 @@
 
 #include <gtkmm/frame.h>
 #include <gtkmm/grid.h>
+
+#include <ETL/stringf>
 
 #include <gui/app.h>
 #include <gui/asyncrenderer.h>
@@ -118,11 +123,11 @@ RenderSettings::RenderSettings(Gtk::Window& parent, etl::handle<synfigapp::Canva
 	dialogGrid->set_hexpand(true);
 	get_content_area()->pack_start(*dialogGrid,false,false,0);
 
-	Gtk::Button *choose_button(manage(new class Gtk::Button(Gtk::StockID(_("Choose...")))));
+	Gtk::Button *choose_button(manage(new Gtk::Button(_("Choose..."))));
 	choose_button->show();
 	choose_button->signal_clicked().connect(sigc::mem_fun(*this, &studio::RenderSettings::on_choose_pressed));
 
-	tparam_button=manage(new class Gtk::Button(Gtk::StockID(_("Parameters..."))));
+	tparam_button=manage(new Gtk::Button(_("Parameters...")));
 	tparam_button->show();
 	tparam_button->set_sensitive(false);
 	tparam_button->signal_clicked().connect(sigc::mem_fun(*this, &studio::RenderSettings::on_targetparam_pressed));
@@ -149,12 +154,12 @@ RenderSettings::RenderSettings(Gtk::Window& parent, etl::handle<synfigapp::Canva
 	target_grid->attach(entry_filename, 1, 0, 1, 1);
 	target_grid->attach(*choose_button, 2, 0, 1, 1);
 
-	Gtk::Label *targetLabel = manage(new Gtk::Label(_("_Target"), true));
-	targetLabel->set_halign(Gtk::ALIGN_START);
-	targetLabel->set_valign(Gtk::ALIGN_CENTER);
-	targetLabel->set_mnemonic_widget(comboboxtext_target);
+	Gtk::Label *moduleLabel = manage(new Gtk::Label(_("_Module"), true));
+	moduleLabel->set_halign(Gtk::ALIGN_START);
+	moduleLabel->set_valign(Gtk::ALIGN_CENTER);
+	moduleLabel->set_mnemonic_widget(comboboxtext_target);
 	comboboxtext_target.set_hexpand();
-	target_grid->attach(*targetLabel, 0, 1, 1, 1);
+	target_grid->attach(*moduleLabel, 0, 1, 1, 1);
 	target_grid->attach(comboboxtext_target, 1, 1, 1, 1);
 	target_grid->attach(*tparam_button, 2, 1, 1, 1);
 
@@ -202,12 +207,12 @@ RenderSettings::RenderSettings(Gtk::Window& parent, etl::handle<synfigapp::Canva
 	dialogGrid->attach(widget_rend_desc, 0, 2, 1, 1);
 
 
-	Gtk::Button *cancel_button(manage(new class Gtk::Button(Gtk::StockID("gtk-cancel"))));
+	Gtk::Button *cancel_button(manage(new Gtk::Button(_("_Cancel"), true)));
 	cancel_button->show();
 	add_action_widget(*cancel_button,0);
 	cancel_button->signal_clicked().connect(sigc::mem_fun(*this, &studio::RenderSettings::on_cancel_pressed));
 
-	Gtk::Button *render_button(manage(new class Gtk::Button(Gtk::StockID(_("Render")))));
+	Gtk::Button *render_button(manage(new Gtk::Button(_("Render"))));
 	render_button->show();
 	add_action_widget(*render_button,1);
 	render_button->signal_clicked().connect(sigc::mem_fun(*this, &studio::RenderSettings::on_render_pressed));
@@ -449,7 +454,7 @@ RenderSettings::check_target_destination()
 			{
 				if(Glib::file_test(filename_sans_extension(filename) +
 					tparam.sequence_separator +
-					etl::strprintf("%04d", n_frame) +
+					synfig::strprintf("%04d", n_frame) +
 					extension, Glib::FILE_TEST_EXISTS))
 					n_frames_overwrite++;
 			}

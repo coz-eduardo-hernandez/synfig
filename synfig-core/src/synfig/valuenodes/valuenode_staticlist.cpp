@@ -2,21 +2,24 @@
 /*!	\file valuenode_staticlist.cpp
 **	\brief Implementation of the "StaticList" valuenode conversion.
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2008 Chris Moore
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -44,19 +47,19 @@
 #include <algorithm>
 #include <synfig/canvas.h>
 #include <synfig/pair.h>
+#include <synfig/synfig_iterations.h>
 
 #endif
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 
 /* === M A C R O S ========================================================= */
 
 /* === G L O B A L S ======================================================= */
 
-REGISTER_VALUENODE(ValueNode_StaticList, RELEASE_VERSION_0_62_00, "static_list", "Static List")
+REGISTER_VALUENODE(ValueNode_StaticList, RELEASE_VERSION_0_62_00, "static_list", N_("Static List"))
 
 /* === P R O C E D U R E S ================================================= */
 
@@ -202,25 +205,26 @@ ValueNode_StaticList::add(const ValueNode::Handle &value_node, int index) // lin
 {
 	if(index<0 || index>=(int)list.size())
 	{
-		if (getenv("SYNFIG_DEBUG_BONE_REFCOUNT"))
-			printf("%s:%d vvv adding valuenode to end of static list\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_BONE_REFCOUNT",
+			"%s:%d vvv adding valuenode to end of static list\n", __FILE__, __LINE__);
 
 		list.push_back(value_node);
 
-		if (getenv("SYNFIG_DEBUG_BONE_REFCOUNT"))
-			printf("%s:%d ^^^ done adding valuenode\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_BONE_REFCOUNT",
+			"%s:%d ^^^ done adding valuenode\n", __FILE__, __LINE__);
 	}
 	else
 	{
-		if (getenv("SYNFIG_DEBUG_BONE_REFCOUNT"))
-			printf("%s:%d vvv inserting valuenode into static list at %d\n", __FILE__, __LINE__, index);
+		DEBUG_LOG("SYNFIG_DEBUG_BONE_REFCOUNT",
+			"%s:%d vvv inserting valuenode into static list at %d\n", __FILE__, __LINE__, index);
 
 		list.insert(list.begin()+index,value_node);
 
-		if (getenv("SYNFIG_DEBUG_BONE_REFCOUNT"))
-			printf("%s:%d ^^^ done inserting valuenode\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_BONE_REFCOUNT",
+			"%s:%d ^^^ done inserting valuenode\n", __FILE__, __LINE__);
 	}
 
+	init_children_vocab();
 	add_child(value_node.get());
 	//changed();
 
@@ -240,7 +244,7 @@ ValueNode_StaticList::erase(const ListEntry &value_node_) // line 513
 		throw String("ValueNode_StaticList::erase(): Passed bad value node");
 
 	std::vector<ReplaceableListEntry>::iterator iter;
-	for(iter=list.begin();iter!=list.end();++iter)
+	for(iter=list.begin();iter!=list.end();++iter) {
 		if(*iter==value_node)
 		{
 			list.erase(iter);
@@ -264,6 +268,8 @@ ValueNode_StaticList::erase(const ListEntry &value_node_) // line 513
 			}
 			break;
 		}
+	}
+	init_children_vocab();
 }
 
 ValueNode_StaticList::ValueNode_StaticList(Type &container_type, Canvas::LooseHandle canvas): // line 548
@@ -271,18 +277,18 @@ ValueNode_StaticList::ValueNode_StaticList(Type &container_type, Canvas::LooseHa
 	container_type(&container_type),
 	loop_(false)
 {
-	if (getenv("SYNFIG_DEBUG_STATICLIST_CONSTRUCTORS"))
-		printf("%s:%d ValueNode_StaticList::ValueNode_StaticList() construct %p\n", __FILE__, __LINE__, this);
+	DEBUG_LOG("SYNFIG_DEBUG_STATICLIST_CONSTRUCTORS",
+		"%s:%d ValueNode_StaticList::ValueNode_StaticList() construct %p\n", __FILE__, __LINE__, this);
 
-	if (getenv("SYNFIG_DEBUG_SET_PARENT_CANVAS"))
-		printf("%s:%d set parent canvas for static_list %p to %p\n", __FILE__, __LINE__, this, canvas.get());
+	DEBUG_LOG("SYNFIG_DEBUG_SET_PARENT_CANVAS",
+		"%s:%d set parent canvas for static_list %p to %p\n", __FILE__, __LINE__, this, canvas.get());
 	set_parent_canvas(canvas);
 }
 
 ValueNode_StaticList::~ValueNode_StaticList()
 {
 #ifdef _DEBUG
-	if (getenv("SYNFIG_DEBUG_STATICLIST_CONSTRUCTORS"))
+	if (DEBUG_GETENV("SYNFIG_DEBUG_STATICLIST_CONSTRUCTORS"))
 	{
 		printf("\n%s:%d ------------------------------------------------------------------------\n", __FILE__, __LINE__);
 		printf("%s:%d ~ValueNode_StaticList()\n", __FILE__, __LINE__);
@@ -301,7 +307,7 @@ ValueNode_StaticList::create_on_canvas(Type &type, Canvas::LooseHandle canvas)
 }
 
 ValueNode_StaticList*
-ValueNode_StaticList::create(const ValueBase &value)
+ValueNode_StaticList::create(const ValueBase& value, etl::loose_handle<Canvas>)
 {
 	std::vector<ValueBase> value_list(value.get_list());
 
@@ -339,8 +345,8 @@ ValueNode_StaticList::create(const ValueBase &value)
 ValueBase
 ValueNode_StaticList::operator()(Time t)const // line 596
 {
-	if (getenv("SYNFIG_DEBUG_VALUENODE_OPERATORS"))
-		printf("%s:%d operator()\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_VALUENODE_OPERATORS",
+		"%s:%d operator()\n", __FILE__, __LINE__);
 
 	std::vector<ValueBase> ret_list;
 	std::vector<ReplaceableListEntry>::const_iterator iter;
@@ -396,7 +402,7 @@ ValueNode_StaticList::link_local_name(int i)const // line 657
 {
 	assert(i>=0 && i<link_count());
 
-	return etl::strprintf(_("Item %03d"),i+1);
+	return strprintf(_("Item %03d"),i+1);
 }
 
 ValueNode::Handle
@@ -411,7 +417,7 @@ ValueNode_StaticList::clone(Canvas::LooseHandle canvas, const GUID& deriv_guid)c
 
 	puts(get_contained_type().description.name.c_str());
 
-	std::map<const ValueNode*, ValueNode::Handle> clone_map;
+	std::map<ValueNode::LooseHandle, ValueNode::LooseHandle> clone_map;
 	const bool is_actually_skeleton_tree = get_contained_type() == type_bone_object;
 	const types_namespace::TypePair<Bone, Bone>& type_bone_pair = types_namespace::TypePair<Bone, Bone>::instance;
 	const bool is_actually_skeleton_deform = get_contained_type() == type_bone_pair;
@@ -423,13 +429,13 @@ ValueNode_StaticList::clone(Canvas::LooseHandle canvas, const GUID& deriv_guid)c
 			ValueNode::Handle item_clone = (*iter)->clone(canvas, deriv_guid);
 			ret->add(item_clone);
 			if (is_actually_skeleton_tree)
-				clone_map[iter->get()] = item_clone;
+				clone_map[*iter] = item_clone;
 			else if (is_actually_skeleton_deform) {
 				ValueNode_Composite::Handle value_node_composite =
 					ValueNode_Composite::Handle::cast_dynamic(*iter);
 				if (value_node_composite) {
-					clone_map[value_node_composite->get_link("first").get()] = ValueNode_Composite::Handle::cast_static(item_clone)->get_link("first").get();
-					clone_map[value_node_composite->get_link("second").get()] = ValueNode_Composite::Handle::cast_static(item_clone)->get_link("second").get();
+					clone_map[value_node_composite->get_link("first")] = ValueNode_Composite::Handle::cast_static(item_clone)->get_link("first");
+					clone_map[value_node_composite->get_link("second")] = ValueNode_Composite::Handle::cast_static(item_clone)->get_link("second");
 				}
 			}
 		}
@@ -437,11 +443,7 @@ ValueNode_StaticList::clone(Canvas::LooseHandle canvas, const GUID& deriv_guid)c
 	if (is_actually_skeleton_tree || is_actually_skeleton_deform) {
 		// fix referencing to old items (eg. bone parenting)
 		for (std::vector<ReplaceableListEntry>::const_iterator iter=list.begin(), ret_iter=ret->list.begin(); iter!=list.end();++iter, ++ret_iter) {
-			if ((*iter)->is_exported())
-				continue;
-			const Type& type = (*iter)->get_type();
-			if (type == type_bone_object || type == type_bone_pair)
-				ValueNode_Bone::fix_bones_referenced_by(*iter, *ret_iter, false, clone_map);
+			synfig::replace_value_nodes(*ret_iter, SimpleValueNodeReplaceFunctor(clone_map));
 		}
 	}
 
@@ -482,7 +484,7 @@ ValueNode_StaticList::get_children_vocab_vfunc() const
 	for(unsigned int i=0; i<list.size();i++)
 	{
 		ret.push_back(ParamDesc(ValueBase(),strprintf("item%04d",i))
-			.set_local_name(etl::strprintf(_("Item %03d"),i+1))
+			.set_local_name(strprintf(_("Item %03d"),i+1))
 		);
 	}
 
@@ -494,8 +496,8 @@ ValueNode_StaticList::set_member_canvas(etl::loose_handle<Canvas> canvas) // lin
 {
 	for (std::vector<ReplaceableListEntry>::iterator iter = list.begin(); iter != list.end(); iter++)
 	{
-		if (getenv("SYNFIG_DEBUG_SET_PARENT_CANVAS"))
-			printf("%s:%d set parent canvas of member (%p) to (%p)\n", __FILE__, __LINE__, iter->get(), canvas.get());
+		DEBUG_LOG("SYNFIG_DEBUG_SET_PARENT_CANVAS",
+			"%s:%d set parent canvas of member (%p) to (%p)\n", __FILE__, __LINE__, iter->get(), canvas.get());
 		(*iter)->set_parent_canvas(canvas);
 	}
 }
@@ -516,8 +518,8 @@ ValueNode_StaticList::create_new() const
 void
 ValueNode_StaticList::ref()const
 {
-	if (getenv("SYNFIG_DEBUG_STATICLIST_REFCOUNT"))
-		printf("%s:%d %p   ref staticlist %*s -> %2d\n", __FILE__, __LINE__, this, (count()*2), "", count()+1);
+	DEBUG_LOG("SYNFIG_DEBUG_STATICLIST_REFCOUNT",
+		"%s:%d %p   ref staticlist %*s -> %2d\n", __FILE__, __LINE__, this, (count()*2), "", count()+1);
 
 	LinkableValueNode::ref();
 }
@@ -525,8 +527,8 @@ ValueNode_StaticList::ref()const
 bool
 ValueNode_StaticList::unref()const
 {
-	if (getenv("SYNFIG_DEBUG_STATICLIST_REFCOUNT"))
-		printf("%s:%d %p unref staticlist %*s%2d <-\n", __FILE__, __LINE__, this, ((count()-1)*2), "", count()-1);
+	DEBUG_LOG("SYNFIG_DEBUG_STATICLIST_REFCOUNT",
+		"%s:%d %p unref staticlist %*s%2d <-\n", __FILE__, __LINE__, this, ((count()-1)*2), "", count()-1);
 
 	return LinkableValueNode::unref();
 }

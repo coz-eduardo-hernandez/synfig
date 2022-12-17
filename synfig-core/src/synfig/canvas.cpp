@@ -2,21 +2,24 @@
 /*!	\file canvas.cpp
 **	\brief Canvas Class Member Definitions
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -35,7 +38,7 @@
 
 #include <sigc++/bind.h>
 
-#include "time.h"
+#include <ETL/stringf>
 
 #include "general.h"
 #include <synfig/localization.h>
@@ -44,15 +47,10 @@
 #include "context.h"
 #include "exception.h"
 #include "filesystemnative.h"
-#include "importer.h"
 #include "layer.h"
 #include "loadcanvas.h"
-#include "valuenode_registry.h"
 
-#include "debug/measure.h"
 #include "layers/layer_pastecanvas.h"
-#include "valuenodes/valuenode_const.h"
-#include "valuenodes/valuenode_scale.h"
 #include "rendering/common/task/taskpixelprocessor.h"
 
 #endif
@@ -102,8 +100,8 @@ Canvas::Canvas(const String &id):
 void
 Canvas::on_changed()
 {
-	if (getenv("SYNFIG_DEBUG_ON_CHANGED"))
-		printf("%s:%d Canvas::on_changed()\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_ON_CHANGED",
+		"%s:%d Canvas::on_changed()\n", __FILE__, __LINE__);
 
 	is_dirty_=true;
 	Node::on_changed();
@@ -120,16 +118,11 @@ Canvas::~Canvas()
 	// which deletes the current element from the set we're iterating
 	// through, so we have to make sure we've incremented the iterator
 	// before we mess with the pastecanvas
-	std::set<Node*>::iterator iter = parent_set.begin();
-	while (iter != parent_set.end())
-	{
-		Layer_PasteCanvas* paste_canvas = dynamic_cast<Layer_PasteCanvas*>(*iter);
-		iter++;
-		if(paste_canvas)
-			paste_canvas->set_sub_canvas(nullptr);
-		else
-			warning("destroyed canvas has a parent that is not a pastecanvas - please report if repeatable");
-	}
+	std::vector<Layer_PasteCanvas::Handle> special_parents = find_all_parents_of_type<Layer_PasteCanvas>();
+	for (Layer_PasteCanvas::Handle& paste_canvas : special_parents)
+		paste_canvas->set_sub_canvas(nullptr);
+	if (parent_count() > 0)
+		warning("destroyed canvas has a parent that is not a pastecanvas - please report if repeatable [total %zu]", parent_count());
 
 	//if(is_inline() && parent_) assert(0);
 	_CanvasCounter::counter--;
@@ -348,7 +341,7 @@ Canvas::get_context_sorted(const ContextParams &params, CanvasBase &out_list) co
 	}
 
 	out_list.clear();
-	for(std::multimap<Real, Layer::Handle>::const_iterator i = layers.begin(); i != layers.end(); ++i)
+	for (std::multimap<Real, Layer::Handle>::const_iterator i = layers.begin(); i != layers.end(); ++i)
 		out_list.push_back(i->second);
 	out_list.push_back(Layer::Handle());
 
@@ -756,7 +749,7 @@ Canvas::surefind_canvas(const String &id, String &warnings)
 		String file_name(id,0,id.find_first_of('#'));
 		String external_id(id,id.find_first_of('#')+1);
 
-		file_name=unix_to_local_path(file_name);
+		file_name=FileSystem::fix_slashes(file_name);
 
 		Canvas::Handle external_canvas;
 
@@ -845,7 +838,7 @@ Canvas::find_canvas(const String &id, String &warnings)const
 		String file_name(id,0,id.find_first_of('#'));
 		String external_id(id,id.find_first_of('#')+1);
 
-		file_name=unix_to_local_path(file_name);
+		file_name=FileSystem::fix_slashes(file_name);
 
 		Canvas::Handle external_canvas;
 
@@ -1496,9 +1489,8 @@ Canvas::show_structure(int i) const
 		else
 			printf(": no composite");
 		printf("\n");
-		if(dynamic_cast<Layer_PasteCanvas*>(layer.get()) != NULL)
+		if(Layer_PasteCanvas* paste_canvas = dynamic_cast<Layer_PasteCanvas*>(layer.get()))
 		{
-			Layer_PasteCanvas* paste_canvas(static_cast<Layer_PasteCanvas*>(layer.get()));
 			paste_canvas->get_sub_canvas()->show_structure(i+1);
 		}
 	}
@@ -1516,18 +1508,17 @@ Canvas::invoke_signal_value_node_child_removed(etl::handle<ValueNode> container,
 	signal_value_node_child_removed()(container, content);
 	Canvas::Handle canvas(this);
 #ifdef DEBUG_INVOKE_SVNCR
-	printf("%s:%d removed stuff from a canvas %lx with %zd parents\n", __FILE__, __LINE__, uintptr_t(canvas.get()), canvas->parent_set.size());
+	printf("%s:%d removed stuff from a canvas %lx with %zu parents\n", __FILE__, __LINE__, uintptr_t(canvas.get()), canvas->parent_count());
 #endif
-	for (std::set<Node*>::iterator iter = canvas->parent_set.begin(); iter != canvas->parent_set.end(); iter++)
-	{
-		if (Layer* layer = dynamic_cast<Layer*>(*iter))
+	auto find_layers_to_invoke_signals = [container, content] (Node* canvas_parent) -> bool {
+		if (Layer* layer = dynamic_cast<Layer*>(canvas_parent))
 		{
 #ifdef DEBUG_INVOKE_SVNCR
 			printf("it's a layer %lx\n", uintptr_t(layer));
-			printf("%s:%d it's a layer with %zd parents\n", __FILE__, __LINE__, layer->parent_set.size());
+			printf("%s:%d it's a layer with %zu parents\n", __FILE__, __LINE__, layer->parent_count());
 #endif
-			for (std::set<Node*>::iterator iter = layer->parent_set.begin(); iter != layer->parent_set.end(); iter++)
-				if (Canvas* canvas = dynamic_cast<Canvas*>(*iter))
+			auto invoke_signal = [container, content] (Node* layer_parent) -> bool {
+				if (Canvas* canvas = dynamic_cast<Canvas*>(layer_parent))
 				{
 #ifdef DEBUG_INVOKE_SVNCR
 					printf("it's a canvas %lx\n", uintptr_t(canvas));
@@ -1548,12 +1539,17 @@ Canvas::invoke_signal_value_node_child_removed(etl::handle<ValueNode> container,
 				else
 					printf("not a canvas\n");
 #endif
+				return false;
+			};
+			layer->foreach_parent(invoke_signal);
 		}
 #ifdef DEBUG_INVOKE_SVNCR
 		else
 			printf("not a layer\n");
 #endif
-	}
+		return false;
+	};
+	canvas->foreach_parent(find_layers_to_invoke_signals);
 }
 
 #if 0
@@ -1568,10 +1564,10 @@ void
 Canvas::show_canvas_ancestry()const
 {
 	String layer;
-	// printf("%s:%d parent set size = %zd\n", __FILE__, __LINE__, parent_set.size());
-	if (parent_set.size() == 1)
+	// printf("%s:%d parent set size = %zu\n", __FILE__, __LINE__, parent_count());
+	if (parent_count() == 1)
 	{
-		Node* node(*(parent_set.begin()));
+		Node* node(get_first_parent()));
 		if (dynamic_cast<Layer*>(node))
 		{
 			layer = (dynamic_cast<Layer*>(node))->get_description();

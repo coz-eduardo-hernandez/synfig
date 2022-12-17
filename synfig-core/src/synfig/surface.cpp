@@ -2,24 +2,25 @@
 /*!	\file surface.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2012-2013 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
-**	\endlegal
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
 **
-** === N O T E S ===========================================================
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
+**	\endlegal
 **
 ** ========================================================================= */
 
@@ -32,11 +33,9 @@
 #	include <config.h>
 #endif
 
-#include "canvas.h"
 #include "surface.h"
 #include "target_scanline.h"
 #include "target_tile.h"
-#include "general.h"
 #include <synfig/localization.h>
 
 #ifdef HAS_VIMAGE
@@ -46,7 +45,6 @@
 #endif
 
 using namespace synfig;
-using namespace etl;
 
 /* === M A C R O S ========================================================= */
 
@@ -134,7 +132,7 @@ synfig::Surface::clear()
 #ifdef HAS_VIMAGE
 	fill(Color(0.5,0.5,0.5,0.0000001));
 #else
-	etl::surface<Color, ColorAccumulator, ColorPrep>::clear();
+	surface<Color, ColorPrep>::clear();
 #endif
 }
 
@@ -238,7 +236,7 @@ synfig::Surface::blit_to(alpha_pen& pen, int x, int y, int w, int h)
 		return;
 	}
 #endif
-	etl::surface<Color, ColorAccumulator, ColorPrep>::blit_to(pen,x,y,w,h);
+	surface<Color, ColorPrep>::blit_to(pen,x,y,w,h);
 }
 
 

@@ -2,23 +2,26 @@
 /*!	\file state_draw.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007 Chris Moore
 **	Copyright (c) 2009 Nikita Kitaev
 **  Copyright (c) 2010 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -61,19 +64,14 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 using namespace studio;
 
 /* === M A C R O S ========================================================= */
 
 #ifndef LAYER_CREATION
-#define LAYER_CREATION(button, stockid, tooltip)	\
-	{ \
-		Gtk::Image *icon = manage(new Gtk::Image(Gtk::StockID(stockid), \
-			Gtk::ICON_SIZE_SMALL_TOOLBAR)); \
-		button.add(*icon); \
-	} \
+#define LAYER_CREATION(button, icon_name, tooltip)	\
+	button.set_image_from_icon_name(icon_name, Gtk::BuiltinIconSize::ICON_SIZE_SMALL_TOOLBAR); \
 	button.set_relief(Gtk::RELIEF_NONE); \
 	button.set_tooltip_text(tooltip); \
 	button.signal_toggled().connect(sigc::mem_fun(*this, \
@@ -90,10 +88,10 @@ StateDraw studio::state_draw;
 
 class studio::StateDraw_Context : public sigc::trackable
 {
-	typedef etl::smart_ptr<std::list<synfig::Point> > StrokeData;
-	typedef etl::smart_ptr<std::list<synfig::Real> > WidthData;
+	typedef std::shared_ptr<std::list<synfig::Point>> StrokeData;
+	typedef std::shared_ptr<std::list<synfig::Real>> WidthData;
 
-	typedef std::list< std::pair<StrokeData,WidthData> > StrokeQueue;
+	typedef std::list< std::pair<StrokeData,WidthData>> StrokeQueue;
 
 	StrokeQueue stroke_queue;
 
@@ -115,7 +113,7 @@ class studio::StateDraw_Context : public sigc::trackable
 
 	Gtk::Menu menu;
 
-	std::list< etl::smart_ptr<std::list<synfig::Point> > > stroke_list;
+	std::list<std::shared_ptr<std::list<synfig::Point>>> stroke_list;
 
 	void refresh_ducks();
 
@@ -370,126 +368,52 @@ StateDraw_Context::load_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		String value;
+		set_id(settings.get_value("draw.id","NewDrawing"));
 
-		if(settings.get_value("draw.id",value))
-			set_id(value);
-		else
-			set_id("NewDrawing");
+		set_blend(settings.get_value("draw.blend", int(Color::BLEND_COMPOSITE)));
 
-		if(settings.get_value("draw.blend",value) && value != "")
-			set_blend(atoi(value.c_str()));
-		else
-			set_blend(0);//(int)Color::BLEND_COMPOSITE); //0 should be blend composites value
+		set_opacity(settings.get_value("draw.opacity", 1.0));
 
-		if(settings.get_value("draw.opacity",value))
-			set_opacity(atof(value.c_str()));
-		else
-			set_opacity(1);
+		set_bline_width(settings.get_value("draw.bline_width", Distance("1px")));
 
-		if(settings.get_value("draw.bline_width",value) && value != "")
-			set_bline_width(Distance(atof(value.c_str()), App::distance_system));
-		else
-			set_bline_width(Distance(1, App::distance_system)); // default width
+		set_pressure_width_flag(settings.get_value("draw.pressure_width", true));
 
-		if(settings.get_value("draw.pressure_width",value) && value=="0")
-			set_pressure_width_flag(false);
-		else
-			set_pressure_width_flag(true);
+		set_auto_loop_flag(settings.get_value("draw.auto_loop", true));
 
-		if(settings.get_value("draw.auto_loop",value) && value=="0")
-			set_auto_loop_flag(false);
-		else
-			set_auto_loop_flag(true);
+		set_auto_extend_flag(settings.get_value("draw.auto_extend", true));
 
-		if(settings.get_value("draw.auto_extend",value) && value=="0")
-			set_auto_extend_flag(false);
-		else
-			set_auto_extend_flag(true);
+		set_auto_link_flag(settings.get_value("draw.auto_link", true));
 
-		if(settings.get_value("draw.auto_link",value) && value=="0")
-			set_auto_link_flag(false);
-		else
-			set_auto_link_flag(true);
+		set_layer_region_flag(settings.get_value("draw.region", true));
 
-		if(settings.get_value("draw.region",value) && value=="0")
-			set_layer_region_flag(false);
-		else
-			set_layer_region_flag(true);
+		set_layer_outline_flag(settings.get_value("draw.outline", true));
 
-		if(settings.get_value("draw.outline",value) && value=="0")
-			set_layer_outline_flag(false);
-		else
-			set_layer_outline_flag(true);
+		set_layer_advanced_outline_flag(settings.get_value("draw.advanced_outline", true));
 
-		if(settings.get_value("draw.advanced_outline",value) && value=="0")
-			set_layer_advanced_outline_flag(false);
-		else
-			set_layer_advanced_outline_flag(true);
+		set_layer_link_origins_flag(settings.get_value("draw.layer_link_origins", true));
 
-		if(settings.get_value("draw.layer_link_origins",value) && value=="0")
-			set_layer_link_origins_flag(false);
-		else
-			set_layer_link_origins_flag(true);
+		set_auto_export_flag(settings.get_value("draw.auto_export", false));
 
-		if(settings.get_value("draw.auto_export",value) && value=="1")
-			set_auto_export_flag(true);
-		else
-			set_auto_export_flag(false);
+		set_min_pressure_flag(settings.get_value("draw.min_pressure_on", true));
 
-		if(settings.get_value("draw.min_pressure_on",value) && value=="0")
-			set_min_pressure_flag(false);
-		else
-			set_min_pressure_flag(true);
+		set_min_pressure(settings.get_value("draw.min_pressure", 0.0));
 
-		if(settings.get_value("draw.min_pressure",value))
-		{
-			Real n = atof(value.c_str());
-			set_min_pressure(n);
-		}else
-			set_min_pressure(0);
+		set_feather_size(settings.get_value("draw.feather", Distance("0px")));
 
-		if(settings.get_value("draw.feather",value))
-			set_feather_size(Distance(atof(value.c_str()), App::distance_system));
-		else
-			set_feather_size(Distance(0, App::distance_system));
+		set_gthres(settings.get_value("draw.gthreshold", 0.7));
 
-		if(settings.get_value("draw.gthreshold",value))
-		{
-			Real n = atof(value.c_str());
-			set_gthres(n);
-		}
+		set_width_max_error(settings.get_value("draw.widthmaxerror", 1.0));
 
-		if(settings.get_value("draw.widthmaxerror",value))
-		{
-			Real n = atof(value.c_str());
-			set_width_max_error(n);
-		}
+		set_lthres(settings.get_value("draw.lthreshold", 20.0));
 
-		if(settings.get_value("draw.lthreshold",value))
-		{
-			Real n = atof(value.c_str());
-			set_lthres(n);
-		}
+		set_local_threshold_flag(settings.get_value("draw.localize", false));
 
-		if(settings.get_value("draw.localize",value) && value == "1")
-			//set_local_error_flag(true);
-			set_local_threshold_flag(true);
-		else
-			//set_local_error_flag(false);
-			//set_local_threshold_flag(false);
-			set_global_threshold_flag(true);
+		set_round_ends_flag(settings.get_value("draw.round_ends", false));
 
-		if(settings.get_value("draw.round_ends", value) && value == "1")
-			set_round_ends_flag(true);
-		else
-			set_round_ends_flag(false);
-
-	  // determine layer flags
-	  layer_region_flag = get_layer_region_flag();
-	  layer_outline_flag = get_layer_outline_flag();
-	  layer_advanced_outline_flag = get_layer_advanced_outline_flag();
+		// determine layer flags
+		layer_region_flag = get_layer_region_flag();
+		layer_outline_flag = get_layer_outline_flag();
+		layer_advanced_outline_flag = get_layer_advanced_outline_flag();
 	}
 	catch(...)
 	{
@@ -502,28 +426,27 @@ StateDraw_Context::save_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		settings.set_value("draw.id",get_id().c_str());
-		settings.set_value("draw.blend",strprintf("%d",get_blend()));
-		settings.set_value("draw.opacity",strprintf("%f",(float)get_opacity()));
-		settings.set_value("draw.bline_width", bline_width_dist.get_value().get_string());
-		settings.set_value("draw.pressure_width",get_pressure_width_flag()?"1":"0");
-		settings.set_value("draw.auto_loop",get_auto_loop_flag()?"1":"0");
-		settings.set_value("draw.auto_extend",get_auto_extend_flag()?"1":"0");
-		settings.set_value("draw.auto_link",get_auto_link_flag()?"1":"0");
-		settings.set_value("draw.region",get_layer_region_flag()?"1":"0");
-		settings.set_value("draw.outline",get_layer_outline_flag()?"1":"0");
-		settings.set_value("draw.advanced_outline",get_layer_advanced_outline_flag()?"1":"0");
-		settings.set_value("draw.layer_link_origins",get_layer_link_origins_flag()?"1":"0");
-		settings.set_value("draw.auto_export",get_auto_export_flag()?"1":"0");
-		settings.set_value("draw.min_pressure",strprintf("%f",get_min_pressure()));
-		settings.set_value("draw.feather",feather_dist.get_value().get_string());
-		settings.set_value("draw.min_pressure_on",get_min_pressure_flag()?"1":"0");
-		settings.set_value("draw.gthreshold",strprintf("%f",get_gthres()));
-		settings.set_value("draw.widthmaxerror",strprintf("%f",get_width_max_error()));
-		settings.set_value("draw.lthreshold",strprintf("%f",get_lthres()));
-		settings.set_value("draw.localize",get_local_threshold_flag()?"1":"0");
-		settings.set_value("draw.round_ends", get_round_ends_flag()?"1":"0");
+		settings.set_value("draw.id",get_id());
+		settings.set_value("draw.blend",get_blend());
+		settings.set_value("draw.opacity",get_opacity());
+		settings.set_value("draw.bline_width", bline_width_dist.get_value());
+		settings.set_value("draw.pressure_width",get_pressure_width_flag());
+		settings.set_value("draw.auto_loop",get_auto_loop_flag());
+		settings.set_value("draw.auto_extend",get_auto_extend_flag());
+		settings.set_value("draw.auto_link",get_auto_link_flag());
+		settings.set_value("draw.region",get_layer_region_flag());
+		settings.set_value("draw.outline",get_layer_outline_flag());
+		settings.set_value("draw.advanced_outline",get_layer_advanced_outline_flag());
+		settings.set_value("draw.layer_link_origins",get_layer_link_origins_flag());
+		settings.set_value("draw.auto_export",get_auto_export_flag());
+		settings.set_value("draw.min_pressure",get_min_pressure());
+		settings.set_value("draw.feather",feather_dist.get_value());
+		settings.set_value("draw.min_pressure_on",get_min_pressure_flag());
+		settings.set_value("draw.gthreshold",get_gthres());
+		settings.set_value("draw.widthmaxerror",get_width_max_error());
+		settings.set_value("draw.lthreshold",get_lthres());
+		settings.set_value("draw.localize",get_local_threshold_flag());
+		settings.set_value("draw.round_ends", get_round_ends_flag());
 	}
 	catch(...)
 	{
@@ -616,11 +539,11 @@ StateDraw_Context::StateDraw_Context(CanvasView* canvas_view):
 	layer_types_label.set_valign(Gtk::ALIGN_CENTER);
 
 	LAYER_CREATION(layer_region_togglebutton,
-		("synfig-layer_geometry_region"), _("Create a region layer"));
+		"layer_geometry_region_icon", _("Create a region layer"));
 	LAYER_CREATION(layer_outline_togglebutton,
-		("synfig-layer_geometry_outline"), _("Create an outline layer"));
+		"layer_geometry_outline_icon", _("Create an outline layer"));
 	LAYER_CREATION(layer_advanced_outline_togglebutton,
-		("synfig-layer_geometry_advanced_outline"), _("Create an advanced outline layer"));
+		"layer_geometry_advanced_outline_icon", _("Create an advanced outline layer"));
 
 	layer_region_togglebutton.get_style_context()->add_class("indentation");
 
@@ -886,10 +809,10 @@ StateDraw_Context::refresh_tool_options()
 	App::dialog_tool_options->clear();
 	App::dialog_tool_options->set_widget(options_grid);
 	App::dialog_tool_options->set_local_name(_("Draw Tool"));
-	App::dialog_tool_options->set_name("draw");
+	App::dialog_tool_options->set_icon("tool_draw_icon");
 
 	App::dialog_tool_options->add_button(
-		Gtk::StockID("synfig-fill"),
+		"tool_fill_icon",
 		_("Fill Last Stroke")
 	)->signal_clicked().connect(
 		sigc::mem_fun(
@@ -958,19 +881,6 @@ StateDraw_Context::event_mouse_down_handler(const Smach::event& x)
 }
 
 #define SIMILAR_TANGENT_THRESHOLD	(0.2)
-
-struct debugclass
-{
-	synfig::String x;
-	debugclass(const synfig::String &x):x(x)
-	{
-//		synfig::warning(">>>>>>>>>>>>>>>>>>> "+x);
-	}
-	~debugclass()
-	{
-//		synfig::warning("<<<<<<<<<<<<<<<<<<< "+x);
-	}
-};
 
 struct DepthCounter
 {
@@ -1188,7 +1098,7 @@ StateDraw_Context::new_bline(std::list<synfig::BLinePoint> bline,std::list<synfi
 	bool extend_start_join_same=false,extend_start_join_different=false;
 	bool extend_finish_join_same=false,extend_finish_join_different=false;
 	int start_duck_index = 0,finish_duck_index = 0; // initialized to keep the compiler happy; shouldn't be needed though
-	ValueNode_BLine::Handle start_duck_value_node_bline=NULL,finish_duck_value_node_bline=NULL;
+	ValueNode_BLine::Handle start_duck_value_node_bline=nullptr,finish_duck_value_node_bline=nullptr;
 
 	// Set blend_method to static (consistent with other Layers)
 	ValueBase blend_param_value(get_blend());
@@ -2402,7 +2312,7 @@ StateDraw_Context::refresh_ducks()
 	get_work_area()->clear_ducks();
 
 
-	std::list< etl::smart_ptr<std::list<synfig::Point> > >::iterator iter;
+	std::list<std::shared_ptr<std::list<synfig::Point>>>::iterator iter;
 
 	for(iter=stroke_list.begin();iter!=stroke_list.end();++iter)
 	{
@@ -2428,21 +2338,13 @@ StateDraw_Context::extend_bline_from_begin(ValueNode_BLine::Handle value_node,st
 	if(complete_loop)
 		inserted_bline.push_front((*value_node)(get_canvas()->get_time()).get_list().back().get(BLinePoint()));
 	// store the length of the inserted bline and the number of segments
-	Real inserted_length(bline_length(ValueBase::List(inserted_bline.begin(), inserted_bline.end()), false, NULL));
+	Real inserted_length(bline_length(ValueBase::List(inserted_bline.begin(), inserted_bline.end()), false, nullptr));
 	int inserted_size(inserted_bline.size());
 	// Determine if the bline that the layer belongs to is a Advanced Outline
-	bool is_advanced_outline(false);
-	Layer::Handle layer_parent;
-	std::set<Node*>::iterator niter;
-	for(niter=value_node->parent_set.begin();niter!=value_node->parent_set.end();++niter)
-	{
-		layer_parent=Layer::Handle::cast_dynamic(*niter);
-		if(layer_parent && layer_parent->get_name() == "advanced_outline")
-		{
-			is_advanced_outline=true;
-			break;
-		}
-	}
+	Layer::Handle layer_parent = value_node->find_first_parent_of_type<Layer>([](const Layer::Handle& layer) -> bool {
+		return layer->get_name() == "advanced_outline";
+	});
+	bool is_advanced_outline(layer_parent);
 
 	// Create the action group
 	synfigapp::Action::PassiveGrouper group(get_canvas_interface()->get_instance().get(),_("Extend Spline"));
@@ -2455,7 +2357,7 @@ StateDraw_Context::extend_bline_from_begin(ValueNode_BLine::Handle value_node,st
 			// Calculate the number of blinepoints of the original bline
 			int value_node_size((*value_node)(get_canvas()->get_time()).get_list().size());
 			// Calculate the length of the original bline
-			Real value_node_length(bline_length(ValueBase((*value_node)(get_canvas()->get_time()).get_list()), false, NULL));
+			Real value_node_length(bline_length(ValueBase((*value_node)(get_canvas()->get_time()).get_list()), false, nullptr));
 			// Retrieve the homogeneous parameter value form the layer
 			bool homogeneous(layer_parent->get_param("homogeneous").get(bool()));
 			//
@@ -2619,21 +2521,13 @@ StateDraw_Context::extend_bline_from_end(ValueNode_BLine::Handle value_node,std:
 	if(complete_loop)
 		inserted_bline.push_back((*value_node)(get_canvas()->get_time()).get_list().front().get(BLinePoint()));
 	// store the length of the inserted bline and the number of segments
-	Real inserted_length(bline_length(ValueBase::List(inserted_bline.begin(), inserted_bline.end()), false, NULL));
+	Real inserted_length(bline_length(ValueBase::List(inserted_bline.begin(), inserted_bline.end()), false, nullptr));
 	int inserted_size(inserted_bline.size());
 	// Determine if the bline that the layer belongs to is a Advanced Outline
-	bool is_advanced_outline(false);
-	Layer::Handle layer_parent;
-	std::set<Node*>::iterator niter;
-	for(niter=value_node->parent_set.begin();niter!=value_node->parent_set.end();++niter)
-	{
-		layer_parent=Layer::Handle::cast_dynamic(*niter);
-		if(layer_parent && layer_parent->get_name() == "advanced_outline")
-		{
-			is_advanced_outline=true;
-			break;
-		}
-	}
+	Layer::Handle layer_parent = value_node->find_first_parent_of_type<Layer>([](const Layer::Handle& layer) -> bool {
+		return layer->get_name() == "advanced_outline";
+	});
+	bool is_advanced_outline(layer_parent);
 
 	// Create the action group
 	synfigapp::Action::PassiveGrouper group(get_canvas_interface()->get_instance().get(),_("Extend Spline"));
@@ -2646,7 +2540,7 @@ StateDraw_Context::extend_bline_from_end(ValueNode_BLine::Handle value_node,std:
 			// Calculate the number of blinepoints of the original bline
 			int value_node_size((*value_node)(get_canvas()->get_time()).get_list().size());
 			// Calculate the length of the original bline
-			Real value_node_length(bline_length(ValueBase((*value_node)(get_canvas()->get_time()).get_list()), false, NULL));
+			Real value_node_length(bline_length(ValueBase((*value_node)(get_canvas()->get_time()).get_list()), false, nullptr));
 			// Retrieve the homogeneous parameter value form the layer
 			bool homogeneous(layer_parent->get_param("homogeneous").get(bool()));
 			//

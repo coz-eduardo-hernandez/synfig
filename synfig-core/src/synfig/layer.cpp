@@ -2,22 +2,25 @@
 /*!	\file layer.cpp
 **	\brief Layer class implementation
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **	Copyright (c) 2011-2013 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -379,8 +382,8 @@ Layer::disconnect_dynamic_param(const String& param)
 void
 Layer::on_changed()
 {
-	if (getenv("SYNFIG_DEBUG_ON_CHANGED"))
-		printf("%s:%d Layer::on_changed()\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_ON_CHANGED",
+		"%s:%d Layer::on_changed()\n", __FILE__, __LINE__);
 
 	clear_time_mark();
 	Node::on_changed();
@@ -888,14 +891,14 @@ Layer::build_rendering_task_vfunc(Context context)const
 {
 	rendering::TaskLayer::Handle task = new rendering::TaskLayer();
 	// TODO: This is not thread-safe
-	//task->layer = const_cast<Layer*>(this);//clone(NULL);
-	task->layer = clone(NULL);
+	//task->layer = const_cast<Layer*>(this);//clone(nullptr);
+	task->layer = clone(nullptr);
 	task->layer->set_canvas(get_canvas());
 
 	Real amount = Context::z_depth_visibility(context.get_params(), *this);
 	if (approximate_not_equal(amount, 1.0) && task->layer.type_is<Layer_Composite>())
 	{
-		//task->layer = task->layer->clone(NULL);
+		//task->layer = task->layer->clone(nullptr);
 		etl::handle<Layer_Composite> composite = etl::handle<Layer_Composite>::cast_dynamic(task->layer);
 		composite->set_amount( composite->get_amount()*amount );
 	}
@@ -1006,18 +1009,17 @@ synfig::Layer::get_parent_paste_canvas_layer()const
 		for(iter=parent_canvas->begin();iter!=parent_canvas->end();++iter)
 		{
 			Layer::LooseHandle layer=iter->get();
-			if(dynamic_cast<Layer_PasteCanvas*>(layer.get()) != NULL)
+			if(Layer_PasteCanvas* paste_canvas = dynamic_cast<Layer_PasteCanvas*>(layer.get()))
 			{
-				Layer_PasteCanvas* paste_canvas(static_cast<Layer_PasteCanvas*>(layer.get()));
 				Canvas::Handle sub_canvas=paste_canvas->get_sub_canvas();
 				if(sub_canvas==canvas)
 					return layer;
 			}
 		}
 		synfig::warning("Layer's canvas has parent canvas but I can't find a proper Layer_PasteCanvas in it");
-		return NULL;
+		return nullptr;
 	}
-	return NULL;
+	return nullptr;
 }
 
 String
@@ -1054,7 +1056,7 @@ bool Layer::monitor(const std::string& path) { // append file monitor (returns t
 	RefPtr<Gio::File> file = Gio::File::create_for_path(path);
 	file_monitor = file->monitor_file(); // defaults to Gio::FileMonitorFlags::FILE_MONITOR_NONE
 	monitor_connection = file_monitor->signal_changed().connect(sigc::mem_fun(*this, &Layer::on_file_changed));
-	monitored_path = path;
+	monitored_path = FileSystem::fix_slashes(path);
 	synfig::info("File monitor attached to file: (" + path + ")");
 
 	return true;

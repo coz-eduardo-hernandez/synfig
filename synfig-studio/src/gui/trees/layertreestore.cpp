@@ -2,21 +2,24 @@
 /*!	\file layertreestore.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2008 Chris Moore
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -80,9 +83,8 @@ retrieve_layers_from_dragging(const Gtk::SelectionData &selection_data, synfigap
 
 static LayerTreeStore::Model& ModelHack()
 {
-	static LayerTreeStore::Model* model(0);
-	if(!model)model=new LayerTreeStore::Model;
-	return *model;
+	static LayerTreeStore::Model model;
+	return model;
 }
 
 LayerTreeStore::LayerTreeStore(etl::loose_handle<synfigapp::CanvasInterface> canvas_interface_):
@@ -90,7 +92,6 @@ LayerTreeStore::LayerTreeStore(etl::loose_handle<synfigapp::CanvasInterface> can
 	queued					(false),
 	canvas_interface_		(canvas_interface_)
 {
-	layer_icon=Gtk::Button().render_icon_pixbuf(Gtk::StockID("synfig-layer"),Gtk::ICON_SIZE_SMALL_TOOLBAR);
 
 	// Connect Signals to Terminals
 	canvas_interface()->signal_layer_status_changed().connect(sigc::mem_fun(*this,&studio::LayerTreeStore::on_layer_status_changed));
@@ -118,8 +119,8 @@ LayerTreeStore::LayerTreeStore(etl::loose_handle<synfigapp::CanvasInterface> can
 
 LayerTreeStore::~LayerTreeStore()
 {
-	if (getenv("SYNFIG_DEBUG_DESTRUCTORS"))
-		synfig::info("LayerTreeStore::~LayerTreeStore(): Deleted");
+	DEBUG_LOG("SYNFIG_DEBUG_DESTRUCTORS",
+		"LayerTreeStore::~LayerTreeStore(): Deleted");
 }
 
 int
@@ -271,8 +272,8 @@ LayerTreeStore::get_value_vfunc(const Gtk::TreeModel::iterator& iter, int column
 			if (column == model.strikethrough.index())
 				set_gvalue_tpl<bool>(value, false);
 			else
-			if (column == model.icon.index())
-				set_gvalue_tpl< Glib::RefPtr<Gdk::Pixbuf> >(value, get_tree_pixbuf_layer(layer->get_name()));
+			if (column == model.icon_name.index())
+				set_gvalue_tpl<Glib::ustring>(value, layer_icon_name(layer->get_name()), true);
 			else
 				Gtk::TreeStore::get_value_vfunc(iter,column,value);
 
@@ -306,8 +307,8 @@ LayerTreeStore::get_value_vfunc(const Gtk::TreeModel::iterator& iter, int column
 				set_gvalue_tpl<Pango::Weight>(value, weight);
 			}
 			else
-			if (column == model.icon.index())
-				set_gvalue_tpl< Glib::RefPtr<Gdk::Pixbuf> >(value, get_tree_pixbuf_layer("ghost_group"));
+			if (column == model.icon_name.index())
+				set_gvalue_tpl<Glib::ustring>(value, layer_icon_name("ghost_group"), true);
 			else
 				Gtk::TreeStore::get_value_vfunc(iter,column,value);
 
@@ -489,7 +490,7 @@ LayerTreeStore::drag_data_get_vfunc(const TreeModel::Path& path, Gtk::SelectionD
 	{
 		Layer* layer = (RecordType)row[model.record_type] == RECORD_TYPE_LAYER
 				     ? ((Layer::Handle)row[model.layer]).get()
-		             : NULL;
+		             : nullptr;
 		bool included(false);
 
 		std::vector<Layer*> layers;
@@ -842,7 +843,9 @@ LayerTreeStore::set_row_layer(Gtk::TreeRow &row, const synfig::Layer::Handle &ha
 			layer_paste->signal_subcanvas_changed().connect(
 				sigc::mem_fun(*this,&studio::LayerTreeStore::queue_rebuild) );
 	}
-	if (etl::handle<Layer_Switch> layer_switch = etl::handle<Layer_Switch>::cast_dynamic(handle))
+
+	etl::handle<Layer_Switch> layer_switch = etl::handle<Layer_Switch>::cast_dynamic(handle);
+	if (layer_switch)
 	{
 		switch_changed_connections[layer_switch].disconnect();
 		switch_changed_connections[layer_switch] =
@@ -869,10 +872,12 @@ LayerTreeStore::set_row_layer(Gtk::TreeRow &row, const synfig::Layer::Handle &ha
 	//row[model.canvas] = handle->get_canvas();
 	//row[model.icon] = layer_icon;
 
-	synfig::Layer::Vocab vocab=handle->get_param_vocab();
-	synfig::Layer::Vocab::iterator iter;
+	// Does this layer have a parameter of canvas type?
+	// List this canvas layers as this layer children
 
-	for(iter=vocab.begin();iter!=vocab.end();++iter)
+	const synfig::Layer::Vocab vocab=handle->get_param_vocab();
+
+	for(auto iter=vocab.begin();iter!=vocab.end();++iter)
 	{
 		if(iter->get_hidden())
 			continue;
@@ -889,13 +894,10 @@ LayerTreeStore::set_row_layer(Gtk::TreeRow &row, const synfig::Layer::Handle &ha
 
 			std::set<String> possible_new_layers;
 			std::set<String> impossible_existant_layers;
-			if (etl::handle<Layer_Switch> layer_switch = etl::handle<Layer_Switch>::cast_dynamic(handle))
+			if (layer_switch)
 			{
-				if (!layer_switch->get_param("layer_name").get(String()).empty())
-				{
-					layer_switch->get_possible_new_layers(possible_new_layers);
-					layer_switch->get_impossible_existant_layers(impossible_existant_layers);
-				}
+				layer_switch->get_possible_new_layers(possible_new_layers);
+				layer_switch->get_impossible_existant_layers(impossible_existant_layers);
 			}
 
 			int index = canvas->size() + possible_new_layers.size();

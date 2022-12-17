@@ -1,5 +1,3 @@
-# $Id$
-
 # -- I N I T --------------------------------------------------
 AC_PREREQ(2.60)
 AC_INIT([Extended Template Library],[1.5.1],[https://github.com/synfig/synfig/issues],[ETL])
@@ -32,6 +30,7 @@ AC_PROG_CXXCPP
 AC_PROG_INSTALL
 AC_PROG_RANLIB
 AX_CXX_COMPILE_STDCXX([11], [noext])
+CXXFLAGS="$CXXFLAGS -std=gnu++11"
 
 # that is not working, btw
 test "x$CXX" == "x" && AC_MSG_ERROR([Required program 'c++' not found.])

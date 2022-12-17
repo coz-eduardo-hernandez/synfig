@@ -2,8 +2,6 @@
 /*!	\file dialog_setup.cpp
 **	\brief Dialog Preference implementation
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
@@ -11,15 +9,20 @@
 **	Copyright (c) 2014 Yu Chen
 **	Copyright (c) 2015 Jerome Blanchi
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -47,9 +50,13 @@
 #include <gui/autorecover.h>
 #include <synfig/threadpool.h>
 
+#include <ETL/stringf>
+
 #include <synfig/rendering/renderer.h>
 
 #include <synfigapp/main.h>
+
+#include <gui/resourcehelper.h>
 
 #endif
 
@@ -229,6 +236,12 @@ Dialog_Setup::create_system_page(PageInfo pi)
 	pi.grid->attach(toggle_enable_experimental_features, 1, row, 1, 1);
 	toggle_enable_experimental_features.set_halign(Gtk::ALIGN_START);
 	toggle_enable_experimental_features.set_hexpand(false);
+
+	// System - clear_redo_stack_on_new_action
+	attach_label_section(pi.grid, _("Clear redo history on new action"), ++row);
+	pi.grid->attach(toggle_clear_redo_stack_on_new_action, 1, row, 1, 1);
+	toggle_clear_redo_stack_on_new_action.set_halign(Gtk::ALIGN_START);
+	toggle_clear_redo_stack_on_new_action.set_hexpand(false);
 
 	// signal for change resume
 	auto_backup_interval.signal_changed().connect(
@@ -445,7 +458,7 @@ dragging the handle to the left bottom part of your 2D space."));
 	attach_label(pi.grid,_("Preferred image editor"), ++row);
 
 	//create a button that will open the filechooserdialog to select image editor
-	Gtk::Button *choose_button(manage(new class Gtk::Button(Gtk::StockID(_("Choose...")))));
+	Gtk::Button *choose_button(manage(new Gtk::Button(_("Choose..."))));
 	choose_button->show();
 	choose_button->set_tooltip_text(_("Choose the preferred Image editor for Edit in external tool option"));
 	
@@ -573,7 +586,7 @@ Dialog_Setup::on_accel_edited(const Glib::ustring& path_string, guint accel_key,
 		problematic_iter->get_value(SHORTCUT_COLUMN_ID_ACTION_NAME, accel_path);
 
 		std::string message = _("This shortcut is already set for\n\t%s\n\nAre you sure? It will unset for previously bound action.");
-		message = etl::strprintf(message.c_str(), accel_path.c_str());
+		message = synfig::strprintf(message.c_str(), accel_path.c_str());
 		bool accepted = App::dialog_message_2b(_("Shortcut In Use"), message, Gtk::MESSAGE_QUESTION, _("Cancel"), _("OK"));
 		if (!accepted)
 			return;
@@ -729,6 +742,8 @@ Dialog_Setup::create_interface_page(PageInfo pi)
 	 *  [________________________________]
 	 * COLORTHEME
 	 *  DarkUI          [x]
+	 * ICON THEME
+	 *  [________________________________]
 	 * HANDLETOOLTIP
 	 *  Widthpoint      [x| ]
 	 *  Radius          [x| ]
@@ -741,7 +756,7 @@ Dialog_Setup::create_interface_page(PageInfo pi)
 
 	static const char* languages[][2] = {
 		#include <languages.inc.c>
-		{ NULL, NULL } // final entry without comma to avoid misunderstanding
+		{ nullptr, nullptr } // final entry without comma to avoid misunderstanding
 	};
 
 	ui_language_combo.append("os_LANG", Glib::ustring("(") + _("System Language") + ")");
@@ -768,6 +783,20 @@ Dialog_Setup::create_interface_page(PageInfo pi)
 	pi.grid->attach(toggle_use_dark_theme, 1, row, 1, 1);
 	toggle_use_dark_theme.set_halign(Gtk::ALIGN_START);
 	toggle_use_dark_theme.set_hexpand(false);
+
+	{
+	FileSystem::FileList files;
+	FileSystemNative::instance()->directory_scan(ResourceHelper::get_themes_path(), files);
+	for (const auto& dir : files)
+		icon_theme_combo.append(dir);
+	icon_theme_combo.set_active_text(App::get_icon_theme_name());
+	}
+
+	// Interface - Icon theme
+	attach_label(pi.grid, _("Icon theme"), ++row);
+	pi.grid->attach(icon_theme_combo, 0, ++row, 1, 1);
+	icon_theme_combo.set_hexpand(true);
+	icon_theme_combo.set_margin_start(10);
 
 	// Interface - Toolbars section
 	attach_label_section(pi.grid, _("Toolbars"), ++row);
@@ -842,6 +871,7 @@ Dialog_Setup::on_restore_pressed()
 		toggle_restrict_radius_ducks.set_active(true);
 		toggle_animation_thumbnail_preview.set_active(true);
 		toggle_enable_experimental_features.set_active(false);
+		toggle_clear_redo_stack_on_new_action.set_active(true);
 		toggle_use_dark_theme.set_active(false);
 		toggle_show_file_toolbar.set_active(true);
 		listviewtext_brushes_path->clear_items();
@@ -930,8 +960,13 @@ Dialog_Setup::on_apply_pressed()
 	// Set the experimental features flag
 	App::enable_experimental_features = toggle_enable_experimental_features.get_active();
 
+	// Set the advanced and risky flag that keeps the Redo stack on new action, instead of clear it
+	synfigapp::Main::settings().set_value("pref.clear_redo_stack_on_new_action", toggle_clear_redo_stack_on_new_action.get_active());
+
 	// Set the dark theme flag
 	App::use_dark_theme               = toggle_use_dark_theme.get_active();
+	// Set the icon theme
+	App::set_icon_theme(icon_theme_combo.get_active_text());
 	App::apply_gtk_settings();
 
 	// Set file toolbar flag
@@ -956,7 +991,7 @@ Dialog_Setup::on_apply_pressed()
 			input_settings.set_value(strprintf("brush.path_%d", path_count++), path);
 			App::brushes_path.insert(path);
 		}
-		input_settings.set_value("brush.path_count", strprintf("%d", path_count));
+		input_settings.set_value("brush.path_count", path_count);
 	}
 
 	// Set the preferred file name prefix
@@ -1080,8 +1115,8 @@ Dialog_Setup::on_size_template_combo_change()
 		pref_x_size_spinbutton->set_sensitive(true);
 		return;
 	}
-	String::size_type locx=selection.find_first_of("x"); // here should be some comparison with string::npos
-	String::size_type locspace=selection.find_first_of(" ");
+	String::size_type locx=selection.find_first_of('x'); // here should be some comparison with string::npos
+	String::size_type locspace=selection.find_first_of(' ');
 	String x_size(selection.substr(0,locx));
 	String y_size(selection.substr(locx+1,locspace));
 	int x=atoi(x_size.c_str());
@@ -1210,8 +1245,16 @@ Dialog_Setup::refresh()
 	// Refresh the status of the experimental features flag
 	toggle_enable_experimental_features.set_active(App::enable_experimental_features);
 
+	// Refresh the status of the experimental features flag
+	{
+		bool active = synfigapp::Main::settings().get_value("pref.clear_redo_stack_on_new_action", true);
+		toggle_clear_redo_stack_on_new_action.set_active(active);
+	}
+
 	// Refresh the status of the theme flag
 	toggle_use_dark_theme.set_active(App::use_dark_theme);
+	// Refresh the choice of the icon theme
+	icon_theme_combo.set_active_text(App::get_icon_theme_name());
 
 	// Refresh the status of the render done sound flag
 	toggle_play_sound_on_render_done.set_active(App::use_render_done_sound);
@@ -1253,19 +1296,19 @@ Dialog_Setup::refresh()
 	//! Now brush path(s) are hold by input preferences : brush.path_count & brush.path_%d
 	String value;
 	Gtk::TreeIter ui_iter;
-	bool bvalue(input_settings.get_value("brush.path_count",value));
-	int i(atoi(value.c_str()));
+	int brush_path_count = input_settings.get_value("brush.path_count", 0);
 	App::brushes_path.clear();
 	liststore->clear();
-	if(!bvalue || (bvalue && i<=0))
+	if(brush_path_count == 0)
 	{
 		App::brushes_path.insert(ResourceHelper::get_brush_path());
 	}
 	else
 	{
-		for(int j = 0; j<i;j++)
+		for(int j = 0; j<brush_path_count;j++)
 		{
-			if(input_settings.get_value(strprintf("brush.path_%d", j),value))
+			std::string path = input_settings.get_value(strprintf("brush.path_%d", j), "");
+			if(!path.empty())
 			{
 				App::brushes_path.insert(value);
 			}

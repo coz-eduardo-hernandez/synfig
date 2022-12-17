@@ -1,25 +1,26 @@
 /* === S Y N F I G ========================================================= */
 /*!	\file trgt_gif.cpp
-**	\brief BMP Target Module
-**
-**	$Id$
+**	\brief GIF Target Module
 **
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007 Chris Moore
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
-**	\endlegal
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
 **
-** === N O T E S ===========================================================
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
+**	\endlegal
 **
 ** ========================================================================= */
 
@@ -31,6 +32,8 @@
 #ifdef HAVE_CONFIG_H
 #	include <config.h>
 #endif
+
+#include <ETL/stringf>
 
 #include <synfig/localization.h>
 #include <synfig/general.h>
@@ -44,7 +47,6 @@
 /* === M A C R O S ========================================================= */
 
 using namespace synfig;
-using namespace etl;
 
 #define MAX_FRAME_RATE	(20.0)
 
@@ -64,9 +66,9 @@ gif::gif(const char *filename_, const synfig::TargetParam & /* params */):
 	codesize(),
 	rootsize(),
 	nextcode(),
-	table(NULL),
-	next(NULL),
-	node(NULL),
+	table(nullptr),
+	next(nullptr),
+	node(nullptr),
 	imagecount(0),
 	cur_scanline(),
 	lossy(true),
@@ -354,8 +356,8 @@ gif::end_frame()
 				{
 
 					// Lossy
-					if(
-						std::fabs( ( iter->color-prev_palette[prev_frame[cur_scanline][i]-1].color ).get_y() ) > (1.0/16.0) ||
+					if ((!prev_palette.empty() &&
+						std::fabs( ( iter->color-prev_palette[prev_frame[cur_scanline][i]-1].color ).get_y() ) > (1.0/16.0)) ||
 //						abs((int)value-(int)prev_frame[cur_scanline][i])>2||
 //						(value<=2 && value!=prev_frame[cur_scanline][i]) ||
 						(imagecount%iframe_density)==0 || imagecount==desc.get_frame_end()-1 ) // lossy version

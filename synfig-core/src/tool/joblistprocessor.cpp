@@ -2,22 +2,25 @@
 /*!	\file tool/joblistprocessor.cpp
 **	\brief Synfig Tool Rendering Job List Processor Class
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **	Copyright (c) 2009-2015 Diego Barrios Romero
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -75,7 +78,7 @@ void process_job_list(std::list<Job>& job_list, const TargetParam& target_params
 
 std::string get_extension(const std::string &filename)
 {
-	std::size_t found = filename.rfind(".");
+	std::size_t found = filename.rfind('.');
 	if (found == std::string::npos) return ""; // extension not found
 
 	return filename.substr(found);
@@ -83,7 +86,7 @@ std::string get_extension(const std::string &filename)
 
 std::string replace_extension(const std::string &filename, const std::string &new_extension)
 {
-	std::size_t found = filename.rfind(".");
+	std::size_t found = filename.rfind('.');
 	if (found == std::string::npos) return filename + "." + new_extension; // extension not found
 	
 	return filename.substr(0, found) + "." + new_extension;

@@ -2,22 +2,25 @@
 /*!	\file valuenode_scale.cpp
 **	\brief Implementation of the "Scale" valuenode conversion.
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **  Copyright (c) 2011 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -38,24 +41,22 @@
 #include "valuenode_const.h"
 #include <stdexcept>
 #include <synfig/color.h>
+#include <synfig/misc.h>
 #include <synfig/vector.h>
 #include <synfig/time.h>
 #include <synfig/angle.h>
-#include <ETL/misc>
-#include <ETL/stringf>
 
 #endif
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 
 /* === M A C R O S ========================================================= */
 
 /* === G L O B A L S ======================================================= */
 
-REGISTER_VALUENODE(ValueNode_Scale, RELEASE_VERSION_0_61_06, "scale", "Scale")
+REGISTER_VALUENODE(ValueNode_Scale, RELEASE_VERSION_0_61_06, "scale", N_("Scale"))
 
 /* === P R O C E D U R E S ================================================= */
 
@@ -64,8 +65,7 @@ REGISTER_VALUENODE(ValueNode_Scale, RELEASE_VERSION_0_61_06, "scale", "Scale")
 ValueNode_Scale::ValueNode_Scale(const ValueBase &value):
 	LinkableValueNode(value.get_type())
 {
-	Vocab ret(get_children_vocab());
-	set_children_vocab(ret);
+	init_children_vocab();
 	set_link("scalar",ValueNode::Handle(ValueNode_Const::create(Real(1.0))));
 	Type &type(value.get_type());
 
@@ -104,7 +104,7 @@ ValueNode_Scale::create_new()const
 }
 
 ValueNode_Scale*
-ValueNode_Scale::create(const ValueBase& value)
+ValueNode_Scale::create(const ValueBase& value, etl::loose_handle<Canvas>)
 {
 	return new ValueNode_Scale(value);
 }
@@ -117,8 +117,8 @@ synfig::ValueNode_Scale::~ValueNode_Scale()
 synfig::ValueBase
 synfig::ValueNode_Scale::operator()(Time t)const
 {
-	if (getenv("SYNFIG_DEBUG_VALUENODE_OPERATORS"))
-		printf("%s:%d operator()\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_VALUENODE_OPERATORS",
+		"%s:%d operator()\n", __FILE__, __LINE__);
 
 	if(!value_node || !scalar)
 		throw std::runtime_error(strprintf("ValueNode_Scale: %s",_("One or both of my parameters aren't set!")));

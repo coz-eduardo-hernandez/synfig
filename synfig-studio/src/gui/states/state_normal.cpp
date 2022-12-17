@@ -2,22 +2,25 @@
 /*!	\file state_normal.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **	Copyright (c) 2009 Nikita Kitaev
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -51,7 +54,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 using namespace studio;
 
@@ -315,7 +317,7 @@ StateNormal_Context::refresh_tool_options()
 	App::dialog_tool_options->clear();
 	App::dialog_tool_options->set_widget(options_grid);
 	App::dialog_tool_options->set_local_name(_("Transform Tool"));
-	App::dialog_tool_options->set_name("normal");
+	App::dialog_tool_options->set_icon("tool_normal_icon");
 }
 
 
@@ -336,7 +338,7 @@ DuckDrag_Combo::DuckDrag_Combo():
 	bad_drag(),
 	move_only(),
 	is_moving(false),
-	canvas_view_(NULL),
+	canvas_view_(nullptr),
 	scale(false),
 	rotate(false),
 	constrain(false) // Lock aspect for scale
@@ -687,7 +689,7 @@ StateNormal_Context::event_key_down_handler(const Smach::event& x)
 {
 	// event.modifier yet not set when ctrl (or alt or shift)
 	// key pressed event handled. So we need to check this keys manually.
-	// We may encountred some cosmetic problems with mouse-cursor image
+	// We may encounter some cosmetic problems with mouse-cursor image
 	// if user will redefine modifier keys.
 	// Anyway processing of keys Ctrl+Right, Ctrl+Left etc will works fine.
 	// see 'xmodmap' command
@@ -716,7 +718,7 @@ StateNormal_Context::event_key_down_handler(const Smach::event& x)
 		set_shift_pressed(event.modifier&GDK_SHIFT_MASK);
 		break;
 	}
-	return Smach::RESULT_REJECT;
+	return Smach::RESULT_OK;
 }
 
 Smach::event_result
@@ -745,7 +747,7 @@ StateNormal_Context::event_key_up_handler(const Smach::event& x)
 	default:
 		break;
 	}
-	return Smach::RESULT_REJECT;
+	return Smach::RESULT_OK;
 }
 
 Smach::event_result

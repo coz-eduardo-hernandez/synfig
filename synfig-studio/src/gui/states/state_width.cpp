@@ -2,22 +2,25 @@
 /*!	\file state_width.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **  Copyright (c) 2008 Chris Moore
 **  Copyright (c) 2011 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -30,8 +33,6 @@
 #ifdef HAVE_CONFIG_H
 #	include <config.h>
 #endif
-
-#include <ETL/clock>
 
 #include <gui/app.h>
 #include <gui/canvasview.h>
@@ -46,6 +47,7 @@
 #include <gui/workarea.h>
 
 #include <synfig/blinepoint.h>
+#include <synfig/clock.h>
 #include <synfig/general.h>
 #include <synfig/valuenodes/valuenode_wplist.h>
 
@@ -83,8 +85,7 @@ class studio::StateWidth_Context : public sigc::trackable
 
 	std::map<handle<Duck>,Real>	changetable;
 
-	etl::clock	clocktime;
-	// Real		lastt; // unused
+	synfig::clock	clocktime;
 
 	bool added;
 
@@ -175,25 +176,12 @@ StateWidth_Context::load_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		String value;
-
 		//parse the arguments yargh!
-		if(settings.get_value("width.delta",value))
-			set_delta(atof(value.c_str()));
-		else
-			set_delta(6);
+		set_delta(settings.get_value("width.delta", 6.0));
 
-		if(settings.get_value("width.radius",value))
-			set_radius(Distance(atof(value.c_str()), App::distance_system));
-		else
-			set_radius(Distance(60, App::distance_system));
+		set_radius(settings.get_value("width.radius", Distance("60px")));
 
-		//defaults to false
-		if(settings.get_value("width.relative",value) && value == "1")
-			set_relative(true);
-		else
-			set_relative(false);
+		set_relative(settings.get_value("width.relative", false));
 	}
 	catch(...)
 	{
@@ -206,10 +194,9 @@ StateWidth_Context::save_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		settings.set_value("width.delta",strprintf("%f",get_delta()));
-		settings.set_value("width.radius",influence_radius->get_value().get_string());
-		settings.set_value("width.relative",get_relative()?"1":"0");
+		settings.set_value("width.delta",get_delta());
+		settings.set_value("width.radius",influence_radius->get_value());
+		settings.set_value("width.relative",get_relative());
 	}
 	catch(...)
 	{
@@ -333,7 +320,7 @@ StateWidth_Context::refresh_tool_options()
 	App::dialog_tool_options->clear();
 	App::dialog_tool_options->set_widget(options_grid);
 	App::dialog_tool_options->set_local_name(_("Width Tool"));
-	App::dialog_tool_options->set_name("width");
+	App::dialog_tool_options->set_icon("tool_width_icon");
 }
 
 Smach::event_result
@@ -456,7 +443,7 @@ StateWidth_Context::AdjustWidth(handle<Duckmatic::Bezier> c, float t, Real mult,
 	synfig::ValueNode::Handle p1pvn(p1->get_value_desc().get_parent_value_node());
 	synfig::ValueNode::Handle p2pvn(p2->get_value_desc().get_parent_value_node());
 	// if the bezier position ducks are linkable valuenode children
-	if(p1pvn && p2pvn && p1pvn==p2pvn)
+	if(p1pvn && p1pvn->get_type() == type_list && p2pvn && p1pvn==p2pvn)
 	{
 		// we guess that the parent value node is a bline value node
 		synfig::ValueNode::Handle bezier_bline=p1pvn;
@@ -569,7 +556,10 @@ StateWidth_Context::event_mouse_handler(const Smach::event& x)
 		if(event.pressure >= threshold)
 			c = get_work_area()->find_bezier(event.pos,scale*8,rad,&t);
 		//run algorithm on event.pos to get 2nd placement
-		if(!c.empty())
+		if(!c.empty()
+			&& c->p1
+			&& c->p1->get_value_desc().parent_is_value_node()
+			&& c->p1->get_value_desc().get_parent_value_node()->get_type() == type_list) // avoid Beziers for Bone Parenting
 		{
 			bezier<Point> curve;
 			Point p;

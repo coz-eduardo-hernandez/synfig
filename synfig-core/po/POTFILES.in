@@ -258,6 +258,8 @@ src/synfig/module.cpp
 src/synfig/module.h
 src/synfig/node.cpp
 src/synfig/node.h
+src/synfig/os.cpp
+src/synfig/os.h
 src/synfig/palette.cpp
 src/synfig/palette.h
 src/synfig/paramdesc.cpp
@@ -265,7 +267,6 @@ src/synfig/paramdesc.h
 src/synfig/pch.h
 src/synfig/polynomial_root.cpp
 src/synfig/polynomial_root.h
-src/synfig/protocol.h
 src/synfig/quick_rng.h
 src/synfig/real.h
 src/synfig/rect.cpp
@@ -288,13 +289,13 @@ src/synfig/string.h
 src/synfig/surface.cpp
 src/synfig/surface.h
 src/synfig/synfig.h
+src/synfig/synfig_iterations.cpp
+src/synfig/synfig_iterations.h
 src/synfig/target.cpp
 src/synfig/target.h
 src/synfig/target_multi.cpp
 src/synfig/target_multi.h
-src/synfig/target_null.cpp
 src/synfig/target_null.h
-src/synfig/target_null_tile.cpp
 src/synfig/target_null_tile.h
 src/synfig/target_scanline.cpp
 src/synfig/target_scanline.h
@@ -385,6 +386,8 @@ src/synfig/valuenodes/valuenode_linear.cpp
 src/synfig/valuenodes/valuenode_linear.h
 src/synfig/valuenodes/valuenode_log.cpp
 src/synfig/valuenodes/valuenode_log.h
+src/synfig/valuenodes/valuenode_modulo.cpp
+src/synfig/valuenodes/valuenode_modulo.h
 src/synfig/valuenodes/valuenode_not.cpp
 src/synfig/valuenodes/valuenode_not.h
 src/synfig/valuenodes/valuenode_or.cpp
