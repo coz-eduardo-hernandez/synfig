@@ -2,21 +2,24 @@
 /*!	\file metaballs.cpp
 **	\brief Implementation of the "Metaballs" layer
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2012-2013 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -45,7 +48,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 
 /* === G L O B A L S ======================================================= */
@@ -158,16 +160,14 @@ Metaballs::hit_check(synfig::Context context, const synfig::Point &point)const
 {
 	Real density(totaldensity(point));
 
-	if (density <= 0 || density > 1 || get_amount() == 0)
+	if (density <= 0 || density > 1)
 		return context.hit_check(point);
 
-	synfig::Layer::Handle tmp;
+	bool check_myself_first;
+	auto layer = basic_hit_check(context, point, check_myself_first);
 
-	if (get_blend_method()==Color::BLEND_BEHIND && (tmp=context.hit_check(point)))
-		return tmp;
-
-	if (Color::is_onto(get_blend_method()) && !(context.hit_check(point)))
-		return 0;
+	if (!check_myself_first)
+		return layer;
 
 	return const_cast<Metaballs*>(this);
 }

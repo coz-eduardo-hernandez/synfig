@@ -2,23 +2,26 @@
 /*!	\file state_smoothmove.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **  Copyright (c) 2008 Chris Moore
 **	Copyright (c) 2009 Nikita Kitaev
 **  Copyright (c) 2010 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -52,7 +55,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 using namespace studio;
 
@@ -156,13 +158,7 @@ StateSmoothMove_Context::load_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		String value;
-
-		if(settings.get_value("smooth_move.radius",value))
-			set_radius(atof(value.c_str()));
-		else
-			set_radius(1.0f);
+		set_radius(settings.get_value("smooth_move.radius", 1.0));
 	}
 	catch(...)
 	{
@@ -175,8 +171,7 @@ StateSmoothMove_Context::save_settings()
 {
 	try
 	{
-	synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		settings.set_value("smooth_move.radius",strprintf("%f",get_radius()));
+		settings.set_value("smooth_move.radius",double(get_radius()));
 	}
 	catch(...)
 	{
@@ -247,7 +242,7 @@ StateSmoothMove_Context::refresh_tool_options()
 	App::dialog_tool_options->clear();
 	App::dialog_tool_options->set_widget(options_grid);
 	App::dialog_tool_options->set_local_name(_("Smooth Move"));
-	App::dialog_tool_options->set_name("smooth_move");
+	App::dialog_tool_options->set_icon("tool_smooth_move_icon");
 }
 
 Smach::event_result
@@ -368,7 +363,9 @@ DuckDrag_SmoothMove::end_duck_drag(Duckmatic* duckmatic)
 
 		int i;
 
-		smart_ptr<OneMoment> wait;if(selected_ducks.size()>20)wait.spawn();
+		std::shared_ptr<OneMoment> wait;
+		if (selected_ducks.size() > 20)
+			wait = std::make_shared<OneMoment>();
 
 		for(i=0,iter=selected_ducks.begin();iter!=selected_ducks.end();++iter,i++)
 		{

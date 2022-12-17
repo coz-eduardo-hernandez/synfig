@@ -2,22 +2,25 @@
 /*!	\file state_rotate.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **  Copyright (c) 2008 Chris Moore
 **  Copyright (c) 2010 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -50,7 +53,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 using namespace studio;
 
@@ -161,13 +163,7 @@ StateRotate_Context::load_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		String value;
-
-		if(settings.get_value("rotate.scale",value) && value=="0")
-			set_scale_flag(false);
-		else
-			set_scale_flag(true);
+		set_scale_flag(settings.get_value("rotate.scale", true));
 	}
 	catch(...)
 	{
@@ -180,8 +176,7 @@ StateRotate_Context::save_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		settings.set_value("rotate.scale",get_scale_flag()?"1":"0");
+		settings.set_value("rotate.scale",get_scale_flag());
 	}
 	catch(...)
 	{
@@ -248,7 +243,7 @@ StateRotate_Context::refresh_tool_options()
 	App::dialog_tool_options->clear();
 	App::dialog_tool_options->set_widget(options_grid);
 	App::dialog_tool_options->set_local_name(_("Rotate Tool"));
-	App::dialog_tool_options->set_name("rotate");
+	App::dialog_tool_options->set_icon("tool_rotate_icon");
 }
 
 Smach::event_result

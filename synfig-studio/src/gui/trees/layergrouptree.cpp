@@ -7,15 +7,20 @@
 **	Copyright (c) 2008 Chris Moore
 **	Copyright (c) 2017 caryoscelus
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -31,12 +36,11 @@
 
 #include <gui/trees/layergrouptree.h>
 
-#include <ETL/misc>
-
 #include <gui/exception_guard.h>
 #include <gui/localization.h>
 
 #include <synfig/layer.h>
+#include <synfig/misc.h>
 
 #endif
 
@@ -70,9 +74,10 @@ LayerGroupTree::LayerGroupTree()
 		append_column(*column);
 	}
 	{	// --- I C O N --------------------------------------------------------
-		int index;
-		index=append_column(_(" "),model.icon);
-		Gtk::TreeView::Column* column = get_column(index-1);
+		Gtk::CellRendererPixbuf* cell_renderer_icon = Gtk::manage(new Gtk::CellRendererPixbuf());
+		Gtk::TreeViewColumn* column = manage(new Gtk::TreeViewColumn(" ", *cell_renderer_icon));
+		append_column(*column);
+		column->add_attribute(cell_renderer_icon->property_icon_name(), model.icon_name);
 		set_expander_column(*column);
 	}
 	{	// --- N A M E --------------------------------------------------------
@@ -116,8 +121,8 @@ LayerGroupTree::LayerGroupTree()
 
 LayerGroupTree::~LayerGroupTree()
 {
-	if (getenv("SYNFIG_DEBUG_DESTRUCTORS"))
-		synfig::info("LayerGroupTree::~LayerGroupTree(): Deleted");
+	DEBUG_LOG("SYNFIG_DEBUG_DESTRUCTORS",
+		"LayerGroupTree::~LayerGroupTree(): Deleted");
 }
 
 void

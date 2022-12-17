@@ -2,20 +2,23 @@
 /*!	\file valuenode_animatedfile.cpp
 **	\brief Implementation of the "AnimatedFile" valuenode conversion.
 **
-**	$Id$
-**
 **	\legal
 **	......... ... 2016 Ivan Mahonin
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -50,15 +53,13 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace std;
-using namespace etl;
 using namespace synfig;
 
 /* === M A C R O S ========================================================= */
 
 /* === G L O B A L S ======================================================= */
 
-REGISTER_VALUENODE(ValueNode_AnimatedFile, RELEASE_VERSION_1_4_0, "animated_file", "Animation from File")
+REGISTER_VALUENODE(ValueNode_AnimatedFile, RELEASE_VERSION_1_6_0, "animated_file", N_("Animation from File"))
 
 /* === C L A S S E S ======================================================= */
 class ValueNode_AnimatedFile::Internal
@@ -83,7 +84,7 @@ public:
 	/// \param[out] values the map of time -> value (phoneme/layer name if lipsync file format)
 	/// \param[out] fields the map of metafield name -> metafield value
 	/// \return true if successful. There is no guarantee about stream offset in case of failure
-	typedef bool (*ParserFunction)(istream &, map<Time, String> &, map<String, String> &);
+	typedef bool (*ParserFunction)(std::istream &, std::map<Time, String> &, std::map<String, String> &);
 
 	/// A parser
 	struct BookEntry {
@@ -92,7 +93,7 @@ public:
 	};
 
 	/// maps file extension -> parser entry
-	typedef std::map<const string, BookEntry> Book;
+	typedef std::map<const std::string, BookEntry> Book;
 
 	/// Book of all implemented parsers
 	static const Book book;
@@ -111,7 +112,7 @@ public:
 	/// \param[out] value the map of time -> layer name
 	/// \param[out] fields the map of metafield -> value
 	/// \return true if successful. There is no guarantee about stream offset in case of failure
-	static bool parse_pgo(istream &s, map<Time, String> &values, map<String, String> &fields)
+	static bool parse_pgo(std::istream &s, std::map<Time, String> &values, std::map<String, String> &fields)
 	{
 		String word;
 		bool unexpected_end = false;
@@ -168,7 +169,7 @@ public:
 						if (s)
 						{
 							s >> frame >> phoneme;
-							first_frame = min(frame, first_frame);
+							first_frame = std::min(frame, first_frame);
 							getline(s, word);
 							values[Time(frame*fk)] = phoneme;
 						} else unexpected_end = true;
@@ -191,7 +192,7 @@ public:
 	/// \param[out] value the map of time -> layer name
 	/// \param[out] fields the map of metafield -> value
 	/// \return true if successful. There is no guarantee about stream offset in case of failure
-	static bool parse_tsv(istream &s, map<Time, String> &values, map<String, String> &/*fields*/)
+	static bool parse_tsv(std::istream &s, std::map<Time, String> &values, std::map<String, String> &/*fields*/)
 	{
 		try {
 			size_t line_num = 0;
@@ -228,7 +229,7 @@ public:
 	/// \param[out] value the map of time -> layer name
 	/// \param[out] fields the map of metafield -> value
 	/// \return true if successful. There is no guarantee about stream offset in case of failure
-	static bool parse_xml(istream &s, map<Time, String> &values, map<String, String> &fields)
+	static bool parse_xml(std::istream &s, std::map<Time, String> &values, std::map<String, String> &fields)
 	{
 		try {
 			xmlpp::DomParser parser;
@@ -308,7 +309,7 @@ from_string(const Type &t, const std::string& str) {
 	else if (t == type_time)
 		v = Time(str);
 	else if (t == type_vector) {
-		const auto comma1_pos = str.find(",");
+		const auto comma1_pos = str.find(',');
 		if (comma1_pos != std::string::npos) {
 			std::string x_str, y_str;
 			x_str = str.substr(0, comma1_pos);
@@ -334,7 +335,7 @@ ValueNode_AnimatedFile::ValueNode_AnimatedFile(Type &t):
 {
 	ValueNode_AnimatedInterfaceConst::set_interpolation(INTERPOLATION_CONSTANT);
 	ValueNode_AnimatedInterfaceConst::set_type(t);
-	set_children_vocab(get_children_vocab());
+	init_children_vocab();
 	set_link("filename", ValueNode_Const::create(String()));
 }
 
@@ -352,7 +353,7 @@ ValueNode_AnimatedFile::create_new() const
 	{ return new ValueNode_AnimatedFile(get_type()); }
 
 ValueNode_AnimatedFile*
-ValueNode_AnimatedFile::create(const ValueBase &x)
+ValueNode_AnimatedFile::create(const ValueBase& x, etl::loose_handle<Canvas>)
 	{ return new ValueNode_AnimatedFile(x.get_type()); }
 
 
@@ -397,12 +398,12 @@ ValueNode_AnimatedFile::load_file(const String &filename, bool force)
 			if (!rs)
 				FileSystem::ReadStream::Handle rs = get_parent_canvas()->get_file_system()->get_read_stream(local_filename);
 
-			map<Time, String> values; // phonemes for lipsync file formats
+			std::map<Time, String> values; // phonemes for lipsync file formats
 			if (!rs)
 				error(_("Cannot open .%s file: %s"), file_extension.c_str(), full_filename.c_str());
 			else
 			if (Parser::book.at(file_extension).parse(*rs, values, filefields)) {
-				for(map<Time, String>::const_iterator i = values.begin(); i != values.end(); ++i) {
+				for (std::map<Time, String>::const_iterator i = values.begin(); i != values.end(); ++i) {
 					ValueBase v = from_string(get_type(), i->second);
 					if (!v.is_valid() || v.get_type() == type_nil) {
 						warning(_("Invalid value for type %s: %s at time %s, or value type is currently not supported"),

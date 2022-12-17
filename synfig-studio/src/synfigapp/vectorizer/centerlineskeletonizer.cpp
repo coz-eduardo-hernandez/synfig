@@ -1,8 +1,6 @@
 /* === S Y N F I G ========================================================= */
 /*!	\file centerlineskeletonizer.cpp
 **
-**	$Id$
-**
 **	\legal
 **	This file uses code from OpenToonz open-source animation software  (https://github.com/opentoonz/opentoonz/), which is developed from Toonz, a software originally created by Digital Video, S.p.A., Rome Italy Digital Video, S.p.A., Rome Italy.
 **
@@ -41,7 +39,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace studio;
 using namespace synfig;
 
@@ -300,7 +297,7 @@ struct VectorizationContext {
   //'Linear Axis-added' *pseudo-original* nodes and edges
   std::vector<ContourNode> m_linearNodesHeap;
   std::vector<ContourEdge> m_linearEdgesHeap;
-  unsigned int m_linearNodesHeapCount;
+  unsigned int m_linearNodesHeapCount = 0;
 
 public:
   VectorizationContext(VectorizerCoreGlobals *globals) : m_globals(globals) {}
@@ -600,8 +597,8 @@ inline void ContourNode::buildNodeInfos(bool forceConvex) {
 
 class RandomizedNode {
 public:
-  ContourNode *m_node;
-  int m_number;
+  ContourNode *m_node = nullptr;
+  int m_number = 0;
 
   RandomizedNode() {}
   RandomizedNode(ContourNode *node) : m_node(node), m_number(rand()) {}
@@ -1711,7 +1708,7 @@ SkeletonList* studio::skeletonize(Contours &contours, const etl::handle<synfigap
 
 
   for (i = 0; i <contours_size ; ++i) {
-    /* To be enabled in case on isCancenled is implemnted
+    /* To be enabled in case on isCancenled is implemented
         if (thisVectorizer->isCanceled()) break;
     */
     res->push_back(skeletonize(contours[i], context));

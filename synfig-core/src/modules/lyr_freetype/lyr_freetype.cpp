@@ -2,26 +2,27 @@
 /*!	\file lyr_freetype.cpp
 **	\brief Implementation of the "Text" layer
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2006 Paul Wise
 **	Copyright (c) 2007, 2008 Chris Moore
 **	Copyright (c) 2012-2013 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
-**	\endlegal
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
 **
-** === N O T E S ===========================================================
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
+**	\endlegal
 **
 ** ========================================================================= */
 
@@ -44,10 +45,15 @@
 #include <algorithm>
 #include <glibmm.h>
 
+#include FT_IMAGE_H
+#include FT_OUTLINE_H
+
 #if HAVE_HARFBUZZ
-#include <fribidi/fribidi.h>
-#include <harfbuzz/hb-ft.h>
+#include <fribidi.h>
+#include <hb-ft.h>
 #endif
+
+#include <ETL/stringf>
 
 #include <synfig/canvasfilenaming.h>
 #include <synfig/context.h>
@@ -282,8 +288,8 @@ get_possible_font_filenames(synfig::String family, int style, int weight, std::v
 
 	struct FontFileNameEntry {
 		const char *alias;
-		const char *preffix;
-		const char *alternative_preffix;
+		const char *prefix;
+		const char *alternative_prefix;
 		FontSuffixStyle suffix_style;
 		FontClassification classification;
 
@@ -394,11 +400,11 @@ get_possible_font_filenames(synfig::String family, int style, int weight, std::v
 		for (int i = 0; font_filename_db[i].alias; i++) {
 			const FontFileNameEntry &entry = font_filename_db[i];
 			if (possible_family == entry.alias) {
-				std::string filename = entry.preffix;
+				std::string filename = entry.prefix;
 				filename += entry.get_suffix(style, weight);
 				list.push_back(filename);
 
-				filename = entry.preffix;
+				filename = entry.prefix;
 				filename += FontFileNameEntry::get_alternative_suffix(style, weight);
 				list.push_back(filename);
 			}
@@ -463,6 +469,8 @@ Layer_Freetype::on_canvas_set()
 	int style=param_style.get(int());
 	int weight=param_weight.get(int());
 	new_font(family,style,weight);
+
+	sync(true);
 }
 
 void
@@ -677,7 +685,11 @@ Layer_Freetype::get_possible_font_directories(const std::string& canvas_path)
 
 #ifdef __APPLE__
 	std::string userdir = Glib::getenv("HOME");
-	possible_font_directories.push_back(userdir + "/Library/Fonts/");
+	if (userdir.empty()) {
+		synfig::error(strprintf("Layer_Freetype: %s", _("Cannot retrieve user home folder")));
+	} else {
+		possible_font_directories.push_back(userdir+"/Library/Fonts/");
+	}
 	possible_font_directories.push_back("/Library/Fonts/");
 #endif
 
@@ -722,7 +734,8 @@ Layer_Freetype::set_shape_param(const String & param, const ValueBase &value)
 */
 	IMPORT_VALUE_PLUS(param_family,
 		{
-			synfig::String family=param_family.get(synfig::String());
+			synfig::String family = FileSystem::fix_slashes(value.get(synfig::String()));
+			param_family.set(family);
 			int style=param_style.get(int());
 			int weight=param_weight.get(int());
 			new_font(family,style,weight);
@@ -1093,29 +1106,14 @@ Layer_Freetype::sync_vfunc()
 	}
 }
 
-inline Color
-Layer_Freetype::color_func(const Point &/*point_*/, int /*quality*/, ColorReal /*supersample*/)const
-{
-	bool invert=param_invert.get(bool());
-	if (invert)
-		return param_color.get(Color());
-	else
-		return Color::alpha();
-}
-
-Color
-Layer_Freetype::get_color(Context context, const Point &pos)const
-{
-	return Layer_Shape::get_color(context, pos);
-}
-
-Layer::Handle
-Layer_Freetype::hit_check(Context context, const Point &point) const
+bool
+Layer_Freetype::is_inside_contour(const Point& p, bool ignore_feather) const
 {
 	sync();
 
-	Point new_point = world_to_contour(point);
-	return Layer_Shape::hit_check(context, new_point);
+	const Point point_in_contour = world_to_contour(p);
+
+	return Layer_Shape::is_inside_contour(point_in_contour, ignore_feather);
 }
 
 Rect
@@ -1303,11 +1301,6 @@ Layer_Freetype::fetch_text_lines(const std::string& text, int direction)
 void
 Layer_Freetype::convert_outline_to_contours(const FT_OutlineGlyphRec* glyph, rendering::Contour::ChunkList& chunks)
 {
-	auto get_vector = [] (const FT_OutlineGlyphRec* glyph, short index) -> Vector {
-		const FT_Vector& ft_v = glyph->outline.points[index];
-		return Vector(ft_v.x, ft_v.y);
-	};
-
 	chunks.clear();
 
 	if (!glyph) {
@@ -1320,106 +1313,30 @@ Layer_Freetype::convert_outline_to_contours(const FT_OutlineGlyphRec* glyph, ren
 		return;
 	}
 
-	short p = 0;
 	rendering::Contour contour;
-	for (int nc = 0; nc < glyph->outline.n_contours; nc++) {
-		if (glyph->outline.n_points == 0)
-			continue;
-
-		const short first_p = p;
-		const short last_p = std::min(glyph->outline.contours[nc], glyph->outline.n_points);
-
-		{
-			const Vector v = get_vector(glyph, p);
-			const char tag = FT_CURVE_TAG(glyph->outline.tags[p]);
-
-			switch (tag) {
-			case FT_CURVE_TAG_ON:
-				contour.move_to(v);
-				break;
-			case FT_CURVE_TAG_CONIC: {
-				char last_tag = FT_CURVE_TAG(glyph->outline.tags[last_p]);
-				Vector last_v = get_vector(glyph, last_p);
-				switch (last_tag) {
-				case FT_CURVE_TAG_ON:
-					contour.move_to(last_v);
-					break;
-				case FT_CURVE_TAG_CONIC:
-					last_v = (v + last_v)/2;
-					contour.move_to(last_v);
-					break;
-				case FT_CURVE_TAG_CUBIC:
-					synfig::error("Layer_Freetype: %s", _("the glyph outline contour cannot end with cubic bezier control point"));
-					continue;
-				default:
-					synfig::error("Layer_Freetype: %s", _("unknown previous tag for the glyph outline contour"));
-					continue;
-				}
-				break;
-			}
-			case FT_CURVE_TAG_CUBIC:
-				synfig::error("Layer_Freetype: %s", _("the glyph outline contour cannot start with cubic bezier control point"));
-				continue;
-			default:
-				synfig::error("Layer_Freetype: %s", _("unknown tag for the glyph outline contour"));
-				continue;
-			}
-		}
-
-		while (p <= last_p) {
-			short next_p = p + 1;
-			if (next_p > last_p)
-				next_p = first_p;
-			short next2_p = next_p + 1;
-			if (next2_p > last_p)
-				next2_p = first_p;
-
-			const Vector v = get_vector(glyph, p);
-			const Vector next_v = get_vector(glyph, next_p);
-			const Vector next2_v = get_vector(glyph, next2_p);
-
-			const char tag = FT_CURVE_TAG(glyph->outline.tags[p]);
-			const char next_tag = FT_CURVE_TAG(glyph->outline.tags[next_p]);
-			const char next2_tag = FT_CURVE_TAG(glyph->outline.tags[next2_p]);
-
-			if (tag == FT_CURVE_TAG_ON && next_tag == FT_CURVE_TAG_ON) {
-				contour.line_to(next_v);
-				p += 1;
-			} else if (tag == FT_CURVE_TAG_ON && next_tag == FT_CURVE_TAG_CONIC && next2_tag == FT_CURVE_TAG_ON) {
-				contour.conic_to(next2_v, next_v);
-				p += 2;
-			} else if (tag == FT_CURVE_TAG_ON && next_tag == FT_CURVE_TAG_CONIC && next2_tag == FT_CURVE_TAG_CONIC) {
-				Vector target_v = (next_v + next2_v)/2;
-				contour.conic_to(target_v, next_v);
-				p += 2;
-			} else if (tag == FT_CURVE_TAG_ON && next_tag == FT_CURVE_TAG_CUBIC && next2_tag == FT_CURVE_TAG_CUBIC) {
-				short next3_p = next2_p + 1;
-				if (next3_p > last_p)
-					next3_p = first_p;
-
-				const char next3_tag = FT_CURVE_TAG(glyph->outline.tags[next3_p]);
-				if (next3_tag == FT_CURVE_TAG_ON) {
-					const Vector next3_v = get_vector(glyph, next3_p);
-					contour.cubic_to(next3_v, next_v, next2_v);
-				}
-				p += 3;
-			} else if (tag == FT_CURVE_TAG_CONIC && next_tag == FT_CURVE_TAG_ON) {
-				contour.conic_to(next_v, v);
-				p += 1;
-			} else if (tag == FT_CURVE_TAG_CONIC && next_tag == FT_CURVE_TAG_CONIC) {
-				Vector middle = (v + next_v)/2;
-				contour.conic_to(middle, v);
-				p += 1;
-			} else { // cuBIC?!
-				synfig::warning("Layer_Freetype: %s", _("strange glyph vertex component... Aborting"));
-				break;
-			}
-		}
-
-		contour.close();
-
-		chunks = contour.get_chunks();
-	}
+	FT_Outline outline = glyph->outline;
+	FT_Outline_Funcs outline_funcs;
+	outline_funcs.move_to = [](const FT_Vector* to, void* contour) -> int {
+		((rendering::Contour*)contour)->move_to(Vector(to->x, to->y));
+		return 0;
+	};
+	outline_funcs.line_to = [](const FT_Vector* to, void* contour) -> int {
+		((rendering::Contour*)contour)->line_to(Vector(to->x, to->y));
+		return 0;
+	};
+	outline_funcs.conic_to = [](const FT_Vector* control, const FT_Vector* to, void* contour) -> int {
+		((rendering::Contour*)contour)->conic_to(Vector(to->x, to->y), Vector(control->x, control->y));
+		return 0;
+	};
+	outline_funcs.cubic_to = [](const FT_Vector* control1, const FT_Vector* control2, const FT_Vector* to, void* contour) -> int {
+		((rendering::Contour*)contour)->cubic_to(Vector(to->x, to->y), Vector(control1->x, control1->y), Vector(control2->x, control2->y));
+		return 0;
+	};
+	outline_funcs.delta = FT_Pos(0);
+	outline_funcs.shift = 0;
+	FT_Outline_Decompose(&outline, &outline_funcs, &contour);
+	contour.close();
+	chunks = contour.get_chunks();
 }
 
 void
@@ -1439,11 +1356,16 @@ Layer_Freetype::world_to_contour(const synfig::Point &p) const
 		return p;
 	Vector size = param_size.get(Vector()) * 2;
 
-	Matrix matrix = Matrix().set_translate(param_origin.get(Vector()))
-					* Matrix().set_scale(size/(face->units_per_EM))
-					* Matrix().set_translate(param_origin.get(Vector()));
+	// Multiplies by face->units_per_EM to avoid rounding errors due to matrix inversion
+	// (face->units_per_EM is usually higher than 2000)
+	const Vector& t = param_origin.get(Vector()) * face->units_per_EM;
 
-	return matrix.get_inverted().get_transformed(p);
+	Matrix matrix(
+			size[0], 0,       0,
+			0,       size[1], 0,
+			t[0],    t[1],    face->units_per_EM);
+
+	return (matrix.get_inverted()*face->units_per_EM).get_transformed(p);
 }
 
 Point Layer_Freetype::contour_to_world(const synfig::Point &p) const
@@ -1453,8 +1375,7 @@ Point Layer_Freetype::contour_to_world(const synfig::Point &p) const
 	Vector size = param_size.get(Vector()) * 2;
 
 	Matrix matrix = Matrix().set_translate(param_origin.get(Vector()))
-					* Matrix().set_scale(size/(face->units_per_EM))
-					* Matrix().set_translate(param_origin.get(Vector()));
+					* Matrix().set_scale(size/(face->units_per_EM));
 
 	return matrix.get_transformed(p);
 }

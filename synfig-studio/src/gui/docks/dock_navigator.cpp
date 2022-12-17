@@ -2,23 +2,26 @@
 /*!	\file dock_navigator.cpp
 **	\brief Dock Nagivator File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007 Chris Moore
 **  Copyright (c) 2011 Nikita Kitaev
 **  ......... ... 2018 Ivan Mahonin
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -229,7 +232,7 @@ Widget_NavView::on_number_modify()
 	// map: -4,4 -> small number,1600 with 100 at 0
 	// f(x) = 100*2^x
 	double z = pow(2.0, adj_zoom->get_value());
-	zoom_print.set_text(etl::strprintf("%.1f%%", z*100.0));
+	zoom_print.set_text(synfig::strprintf("%.1f%%", z*100.0));
 	if(get_canvas_view() && z != get_canvas_view()->get_work_area()->get_zoom()) {
 		struct Lock {
 			int &i;
@@ -302,7 +305,7 @@ studio::Widget_NavView::on_mouse_event(GdkEvent * e)
 // Navigator Dock Definitions
 
 Dock_Navigator::Dock_Navigator():
-	Dock_CanvasSpecific("navigator", _("Navigator"),Gtk::StockID("synfig-navigator"))
+	Dock_CanvasSpecific("navigator", _("Navigator"),"navigator_icon")
 {
 	add(navview);
 }

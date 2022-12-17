@@ -2,22 +2,25 @@
 /*!	\file state_gradient.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **  Copyright (c) 2008 Chris Moore
 **  Copyright (c) 2010 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -58,12 +61,8 @@ using namespace studio;
 /* === M A C R O S ========================================================= */
 
 #ifndef LAYER_CREATION
-#define LAYER_CREATION(button, fun, stockid, tooltip)	\
-	{ \
-		Gtk::Image *icon = manage(new Gtk::Image(Gtk::StockID(stockid), \
-			Gtk::ICON_SIZE_SMALL_TOOLBAR)); \
-		button.add(*icon); \
-	} \
+#define LAYER_CREATION(button, fun, icon_name, tooltip)	\
+	button.set_image_from_icon_name(icon_name, Gtk::BuiltinIconSize::ICON_SIZE_SMALL_TOOLBAR); \
 	button.set_relief(Gtk::RELIEF_NONE); \
 	button.set_tooltip_text(tooltip); \
 	button.signal_toggled().connect(sigc::mem_fun(*this, \
@@ -241,49 +240,25 @@ StateGradient_Context::load_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		String value;
+		set_id(settings.get_value("gradient.id", "Gradient"));
 
-		if(settings.get_value("gradient.id",value))
-			set_id(value);
-		else
-			set_id("Gradient");
+		set_layer_linear_gradient_flag(settings.get_value("gradient.layer_linear_gradient", true));
 
-		if(settings.get_value("gradient.layer_linear_gradient",value) && value=="0")
-			set_layer_linear_gradient_flag(false);
-		else
-			set_layer_linear_gradient_flag(true);
+		set_layer_radial_gradient_flag(settings.get_value("gradient.layer_radial_gradient", true));
 
-		if(settings.get_value("gradient.layer_radial_gradient",value) && value=="0")
-			set_layer_radial_gradient_flag(false);
-		else
-			set_layer_radial_gradient_flag(true);
+		set_layer_conical_gradient_flag(settings.get_value("gradient.layer_conical_gradient", true));
 
-		if(settings.get_value("gradient.layer_conical_gradient",value) && value=="0")
-			set_layer_conical_gradient_flag(false);
-		else
-			set_layer_conical_gradient_flag(true);
+		set_layer_spiral_gradient_flag(settings.get_value("gradient.layer_spiral_gradient", true));
 
-		if(settings.get_value("gradient.layer_spiral_gradient",value) && value=="0")
-			set_layer_spiral_gradient_flag(false);
-		else
-			set_layer_spiral_gradient_flag(true);
+		set_blend(settings.get_value("gradient.blend", int(Color::BLEND_COMPOSITE)));
 
-		if(settings.get_value("gradient.blend",value))
-			set_blend(atoi(value.c_str()));
-		else
-			set_blend(Color::BLEND_COMPOSITE);
+		set_opacity(settings.get_value("gradient.opacity", 1.0));
 
-		if(settings.get_value("gradient.opacity",value))
-			set_opacity(atof(value.c_str()));
-		else
-			set_opacity(1);
-
-	  // determine layer flags
+		// determine layer flags
 		layer_linear_gradient_flag = get_layer_linear_gradient_flag();
-	  layer_radial_gradient_flag = get_layer_radial_gradient_flag();
-	  layer_conical_gradient_flag = get_layer_conical_gradient_flag();
-	  layer_spiral_gradient_flag = get_layer_spiral_gradient_flag();
+		layer_radial_gradient_flag = get_layer_radial_gradient_flag();
+		layer_conical_gradient_flag = get_layer_conical_gradient_flag();
+		layer_spiral_gradient_flag = get_layer_spiral_gradient_flag();
 	}
 	catch(...)
 	{
@@ -296,14 +271,13 @@ StateGradient_Context::save_settings()
 {
 	try
 	{
-		synfig::ChangeLocale change_locale(LC_NUMERIC, "C");
-		settings.set_value("gradient.id",get_id().c_str());
-		settings.set_value("gradient.layer_linear_gradient",get_layer_linear_gradient_flag()?"1":"0");
-		settings.set_value("gradient.layer_radial_gradient",get_layer_radial_gradient_flag()?"1":"0");
-		settings.set_value("gradient.layer_conical_gradient",get_layer_conical_gradient_flag()?"1":"0");
-		settings.set_value("gradient.layer_spiral_gradient",get_layer_spiral_gradient_flag()?"1":"0");
-		settings.set_value("gradient.blend",strprintf("%d",get_blend()));
-		settings.set_value("gradient.opacity",strprintf("%f",(float)get_opacity()));
+		settings.set_value("gradient.id",get_id());
+		settings.set_value("gradient.layer_linear_gradient",get_layer_linear_gradient_flag());
+		settings.set_value("gradient.layer_radial_gradient",get_layer_radial_gradient_flag());
+		settings.set_value("gradient.layer_conical_gradient",get_layer_conical_gradient_flag());
+		settings.set_value("gradient.layer_spiral_gradient",get_layer_spiral_gradient_flag());
+		settings.set_value("gradient.blend",get_blend());
+		settings.set_value("gradient.opacity",get_opacity());
 	}
 	catch(...)
 	{
@@ -394,13 +368,13 @@ StateGradient_Context::StateGradient_Context(CanvasView* canvas_view):
 	layer_types_label.set_valign(Gtk::ALIGN_CENTER);
 
 	LAYER_CREATION(layer_linear_gradient_togglebutton, toggle_layer_linear_gradient,
-		("synfig-layer_gradient_linear"), _("Create a linear gradient"));
+		"layer_gradient_linear_icon", _("Create a linear gradient"));
 	LAYER_CREATION(layer_radial_gradient_togglebutton, toggle_layer_radial_gradient,
-		("synfig-layer_gradient_radial"), _("Create a radial gradient"));
+		"layer_gradient_radial_icon", _("Create a radial gradient"));
 	LAYER_CREATION(layer_conical_gradient_togglebutton, toggle_layer_conical_gradient,
-		("synfig-layer_gradient_conical"), _("Create a conical gradient"));
+		"layer_gradient_conical_icon", _("Create a conical gradient"));
 	LAYER_CREATION(layer_spiral_gradient_togglebutton, toggle_layer_spiral_gradient,
-		("synfig-layer_gradient_spiral"), _("Create a spiral gradient"));
+		"layer_gradient_spiral_icon", _("Create a spiral gradient"));
 
 	layer_linear_gradient_togglebutton.get_style_context()->add_class("indentation");
 	layer_types_box.pack_start(layer_linear_gradient_togglebutton, false, false, 0);
@@ -487,7 +461,7 @@ StateGradient_Context::refresh_tool_options()
 	App::dialog_tool_options->clear();
 	App::dialog_tool_options->set_widget(options_grid);
 	App::dialog_tool_options->set_local_name(_("Gradient Tool"));
-	App::dialog_tool_options->set_name("gradient");
+	App::dialog_tool_options->set_icon("tool_gradient_icon");
 }
 
 Smach::event_result

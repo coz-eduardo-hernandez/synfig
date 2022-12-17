@@ -2,21 +2,24 @@
 /*!	\file valuedesccreatechildbone.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **  Copyright (c) 2013 Ivan Mahonin
 **  Copyright (c) 2020 Aditya Abhiram J
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -41,8 +44,6 @@
 
 #endif
 
-using namespace std;
-using namespace etl;
 using namespace synfig;
 using namespace synfigapp;
 using namespace Action;
@@ -53,7 +54,7 @@ ACTION_INIT(Action::ValueDescCreateChildBone);
 ACTION_SET_NAME(Action::ValueDescCreateChildBone,"ValueDescCreateChildBone");
 ACTION_SET_LOCAL_NAME(Action::ValueDescCreateChildBone,N_("Create Child Bone"));
 ACTION_SET_TASK(Action::ValueDescCreateChildBone,"create_child_bone");
-ACTION_SET_CATEGORY(Action::ValueDescCreateChildBone,Action::CATEGORY_HIDDEN);
+ACTION_SET_CATEGORY(Action::ValueDescCreateChildBone,Action::CATEGORY_VALUEDESC);
 ACTION_SET_PRIORITY(Action::ValueDescCreateChildBone,0);
 ACTION_SET_VERSION(Action::ValueDescCreateChildBone,"0.0");
 
@@ -227,7 +228,7 @@ Action::ValueDescCreateChildBone::prepare()
 	{
 		ValueNode_StaticList::Handle value_node=ValueNode_StaticList::Handle::cast_dynamic(parent_desc.get_parent_value_node());
 		if(!value_node){
-			cout<<"Error"<<endl;
+			std::cout<<"Error"<<std::endl;
 			throw Error(Error::TYPE_NOTREADY, "ValueDescCreateChildBone: not a static list");
 		}
 

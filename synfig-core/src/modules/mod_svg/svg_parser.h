@@ -2,9 +2,7 @@
 /*!	\file svg_parser.h
 **	\brief Implementation of the Svg parser
 **	\brief Based on SVG XML specification 1.1
-**	\brief See: http://www.w3.org/TR/xml11/ for deatils
-**
-**	$Id$
+**	\brief See: http://www.w3.org/TR/xml11/ for details
 **
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
@@ -12,15 +10,20 @@
 **	Copyright (c) 2009 Carlos A. Sosa Navarro
 **	Copyright (c) 2009 Nikita Kitaev
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -74,7 +77,7 @@ struct ColorStop {
 };
 
 struct LinearGradient{
-	char name[80];
+	std::string name;
 	float x1,x2,y1,y2;
 	std::list<ColorStop> stops;
 	SVGMatrix transform;
@@ -83,7 +86,7 @@ struct LinearGradient{
 };
 
 struct RadialGradient{
-	char name[80];
+	std::string name;
 	float cx,cy;//center point
 	//float fx,fy; //not supported by Synfig
 	float r; //radius
@@ -102,12 +105,15 @@ struct Vertex{
    	float x,y;
 	float radius1,angle1;
 	float radius2,angle2;
-	bool split;
+	bool split_radius;
+	bool split_angle;
 
 	void setTg2(float p2x, float p2y);
 	void setTg1(float p2x, float p2y);
 	void setSplit(bool val);
-	bool isFirst(float a, float b) const;
+	void setSplitRadius(bool val);
+	void setSplitAngle(bool val);
+	bool isEqualTo(float a, float b) const;
 	Vertex(float x,float y);
 };
 
@@ -155,15 +161,11 @@ public:
 
 private:
 		Gamma gamma;
-	 	String filepath;
 	 	String id_name;
-		xmlpp::DomParser parser;
 		xmlpp::Document document;
 		xmlpp::Element* nodeRoot;//output
 		double width;
 		double height;
-		Glib::ustring docname;
-		int uid;
 		int kux;
 		bool set_canvas;
 		double ox,oy;
@@ -173,7 +175,7 @@ private:
 
 public:
 		explicit Svg_parser(const Gamma &gamma = Gamma());
-		Canvas::Handle load_svg_canvas(std::string _filepath,String &errors, String &warnings);
+		Canvas::Handle load_svg_canvas(const std::string& filepath,String &errors, String &warnings);
 		//String get_id();
 		//void set_id(String source);
 
@@ -185,12 +187,20 @@ private:
 		void parser_canvas(const xmlpp::Node* node);
 		void parser_graphics(const xmlpp::Node* node, xmlpp::Element* root, Style style, const SVGMatrix& mtx_parent);
 
+		bool parser_rxry_property(const Style &style, double width_reference, double height_reference, double &rx, double &ry);
+
 		/* === LAYER PARSERS ============================== */
 		void parser_layer(const xmlpp::Node* node, xmlpp::Element* root, Style style, const SVGMatrix& mtx);
 		void parser_rect(const xmlpp::Element* nodeElement, xmlpp::Element* root, const Style& style);
+		void parser_circle(const xmlpp::Element* nodeElement, xmlpp::Element* root, const Style& style);
 		/* === CONVERT TO PATH PARSERS ==================== */
 		std::list<BLine> parser_path_polygon(const Glib::ustring& polygon_points, const SVGMatrix& mtx);
 		std::list<BLine> parser_path_d(const String& path_d, const SVGMatrix& mtx);
+		std::list<BLine> parser_path_rect(const xmlpp::Element* nodeElement, const Style& style, const SVGMatrix& mtx);
+		std::list<BLine> parser_path_circle(const xmlpp::Element* nodeElement, const Style& style, const SVGMatrix& mtx);
+		std::list<BLine> parser_path_ellipse(const xmlpp::Element* nodeElement, const Style& style, const SVGMatrix& mtx);
+		std::list<BLine> parser_line(const xmlpp::Element* nodeElement, const SVGMatrix& mtx);
+		std::list<BLine> parser_polyline(const xmlpp::Element* nodeElement, const SVGMatrix& mtx);
 
 		/* === EFFECTS PARSERS ============================ */
 		void parser_effects(const xmlpp::Element* nodeElement, xmlpp::Element* root, const Style& parent_style, const SVGMatrix& mtx);
@@ -201,6 +211,8 @@ private:
 		void parser_radialGradient(const xmlpp::Node* node);
 
 		/* === BUILDS ===================================== */
+		void build_region(xmlpp::Node* root, Style style, const std::list<BLine>& k, const String& desc);
+		void build_outline(xmlpp::Node* root, Style style, const std::list<BLine>& k, const String& desc, const SVGMatrix& mtx);
 		void build_transform(xmlpp::Element* root, const SVGMatrix& mtx);
 		std::list<ColorStop> get_colorStop(String name);
 		void build_fill(xmlpp::Element* root, String name, const SVGMatrix& mtx);
@@ -222,8 +234,9 @@ private:
 		void build_real (xmlpp::Element* root, const String& name, float value);
 		void build_vector (xmlpp::Element* root, const String& name, float x, float y);
 		void build_vector (xmlpp::Element* root, const String& name, float x, float y, const String& guid);
+		void build_dilist(xmlpp::Element* root, const std::vector<float>& p, int linecap);
 		void build_color(xmlpp::Element* root,float r,float g,float b,float a);
-		xmlpp::Element* nodeStartBasicLayer(xmlpp::Element* root, const String& name);
+		xmlpp::Element* initializeGroupLayerNode(xmlpp::Element* root, const String& name);
 
 		/* === COORDINATES & TRANSFORMATIONS ============== */
 

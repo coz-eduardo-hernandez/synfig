@@ -2,23 +2,26 @@
 /*!	\file workarea.h
 **	\brief Template Header
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **  Copyright (c) 2011 Nikita Kitaev
 **  ......... ... 2018 Ivan Mahonin
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -131,6 +134,7 @@ private:
 	etl::handle<Renderer_Canvas> renderer_canvas;
 
 	// Widgets
+	Gtk::Button* menubutton_box;
 	Gtk::DrawingArea *drawing_area;
 	Gtk::Frame *drawing_frame;
 	Widget_Ruler *hruler;
@@ -177,6 +181,8 @@ private:
 	etl::loose_handle<synfig::ValueNode> active_bone_;
 	bool highlight_active_bone;
 
+	//! This state is true if ruler should be shown
+	bool show_rulers;
 	//! This flag is set if the grid should be drawn
 	bool show_grid;
 
@@ -346,6 +352,8 @@ public:
 
 	void refresh_dimension_info();
 
+	void set_show_rulers(bool visible);
+
 	//! Enables showing of the grid
 	void enable_grid();
 	//! Disables showing of the grid
@@ -363,6 +371,7 @@ public:
 	//! Returns the color of the grid
 	const synfig::Color &get_grid_color()const { return Duckmatic::get_grid_color();}
 
+	bool get_show_rulers()const { return show_rulers; }
 	//! Returns the state of the show_guides flag
 	bool get_show_guides()const { return show_guides; }
 	//! Sets the showing of the grid

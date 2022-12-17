@@ -2,21 +2,24 @@
 /*!	\file canvas.cpp
 **	\brief Canvas Class Member Definitions
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -35,7 +38,7 @@
 
 #include <sigc++/bind.h>
 
-#include "time.h"
+#include <ETL/stringf>
 
 #include "general.h"
 #include <synfig/localization.h>
@@ -44,22 +47,16 @@
 #include "context.h"
 #include "exception.h"
 #include "filesystemnative.h"
-#include "importer.h"
 #include "layer.h"
 #include "loadcanvas.h"
-#include "valuenode_registry.h"
 
-#include "debug/measure.h"
 #include "layers/layer_pastecanvas.h"
-#include "valuenodes/valuenode_const.h"
-#include "valuenodes/valuenode_scale.h"
 #include "rendering/common/task/taskpixelprocessor.h"
 
 #endif
 
 using namespace synfig;
 using namespace etl;
-using namespace std;
 
 namespace synfig { extern Canvas::Handle open_canvas_as(const FileSystem::Identifier &identifier, const String &as, String &errors, String &warnings); };
 
@@ -103,8 +100,8 @@ Canvas::Canvas(const String &id):
 void
 Canvas::on_changed()
 {
-	if (getenv("SYNFIG_DEBUG_ON_CHANGED"))
-		printf("%s:%d Canvas::on_changed()\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_ON_CHANGED",
+		"%s:%d Canvas::on_changed()\n", __FILE__, __LINE__);
 
 	is_dirty_=true;
 	Node::on_changed();
@@ -121,16 +118,11 @@ Canvas::~Canvas()
 	// which deletes the current element from the set we're iterating
 	// through, so we have to make sure we've incremented the iterator
 	// before we mess with the pastecanvas
-	std::set<Node*>::iterator iter = parent_set.begin();
-	while (iter != parent_set.end())
-	{
-		Layer_PasteCanvas* paste_canvas = dynamic_cast<Layer_PasteCanvas*>(*iter);
-		iter++;
-		if(paste_canvas)
-			paste_canvas->set_sub_canvas(nullptr);
-		else
-			warning("destroyed canvas has a parent that is not a pastecanvas - please report if repeatable");
-	}
+	std::vector<Layer_PasteCanvas::Handle> special_parents = find_all_parents_of_type<Layer_PasteCanvas>();
+	for (Layer_PasteCanvas::Handle& paste_canvas : special_parents)
+		paste_canvas->set_sub_canvas(nullptr);
+	if (parent_count() > 0)
+		warning("destroyed canvas has a parent that is not a pastecanvas - please report if repeatable [total %zu]", parent_count());
 
 	//if(is_inline() && parent_) assert(0);
 	_CanvasCounter::counter--;
@@ -338,18 +330,18 @@ Canvas::get_context(const Context &parent_context)const
 Context
 Canvas::get_context_sorted(const ContextParams &params, CanvasBase &out_list) const
 {
-	multimap<Real, Layer::Handle> layers;
+	std::multimap<Real, Layer::Handle> layers;
 	int index = 0;
 	for(const_iterator i = begin(); i != end(); ++i, ++index)
 	{
 		assert(*i);
 		// TODO: the 1.0001 constant should be somehow user defined
 		Real depth = (*i)->get_z_depth()*1.0001 + (Real)index;
-		layers.insert(pair<Real, Layer::Handle>(depth, *i));
+		layers.insert(std::pair<Real, Layer::Handle>(depth, *i));
 	}
 
 	out_list.clear();
-	for(multimap<Real, Layer::Handle>::const_iterator i = layers.begin(); i != layers.end(); ++i)
+	for (std::multimap<Real, Layer::Handle>::const_iterator i = layers.begin(); i != layers.end(); ++i)
 		out_list.push_back(i->second);
 	out_list.push_back(Layer::Handle());
 
@@ -413,7 +405,7 @@ valid_id(const String &x)
 		return false;
 
 	for(i=0;i<sizeof(bad_chars);i++)
-		if(x.find_first_of(bad_chars[i])!=string::npos)
+		if(x.find_first_of(bad_chars[i])!=std::string::npos)
 			return false;
 
 	return true;
@@ -423,10 +415,10 @@ void
 Canvas::set_id(const String &x)
 {
 	if(is_inline() && parent_)
-		throw runtime_error("Inline Canvas cannot have an ID");
+		throw std::runtime_error("Inline Canvas cannot have an ID");
 
 	if(!valid_id(x))
-		throw runtime_error("Invalid ID");
+		throw std::runtime_error("Invalid ID");
 	id_=x;
 	signal_id_changed_();
 }
@@ -610,7 +602,7 @@ Canvas::find_value_node(const String &id, bool might_fail)const
 
 	// If we do not have any resolution, then we assume that the
 	// request is for this immediate canvas
-	if(id.find_first_of(':')==string::npos && id.find_first_of('#')==string::npos)
+	if(id.find_first_of(':')==std::string::npos && id.find_first_of('#')==std::string::npos)
 		return value_node_list_.find(id, might_fail);
 
 	String canvas_id(id,0,id.rfind(':'));
@@ -635,7 +627,7 @@ Canvas::surefind_value_node(const String &id)
 
 	// If we do not have any resolution, then we assume that the
 	// request is for this immediate canvas
-	if(id.find_first_of(':')==string::npos && id.find_first_of('#')==string::npos)
+	if(id.find_first_of(':')==std::string::npos && id.find_first_of('#')==std::string::npos)
 		return value_node_list_.surefind(id);
 
 	String canvas_id(id,0,id.rfind(':'));
@@ -655,12 +647,12 @@ Canvas::add_value_node(ValueNode::Handle x, const String &id)
 //		throw runtime_error("You cannot add a ValueNode to an inline Canvas");
 
 	if(x->is_exported())
-		throw runtime_error("ValueNode is already exported");
+		throw std::runtime_error("ValueNode is already exported");
 
 	if(id.empty())
 		throw Exception::BadLinkName("Empty ID");
 
-	if(id.find_first_of(':',0)!=string::npos)
+	if(id.find_first_of(':',0)!=std::string::npos)
 		throw Exception::BadLinkName("Bad character");
 
 	try
@@ -746,7 +738,7 @@ Canvas::surefind_canvas(const String &id, String &warnings)
 
 	// If the ID contains a "#" character, then a filename is
 	// expected on the left side.
-	if(id.find_first_of('#')!=string::npos)
+	if(id.find_first_of('#')!=std::string::npos)
 	{
 		// If '#' is the first character, remove it
 		// and attempt to parse the ID again.
@@ -757,7 +749,7 @@ Canvas::surefind_canvas(const String &id, String &warnings)
 		String file_name(id,0,id.find_first_of('#'));
 		String external_id(id,id.find_first_of('#')+1);
 
-		file_name=unix_to_local_path(file_name);
+		file_name=FileSystem::fix_slashes(file_name);
 
 		Canvas::Handle external_canvas;
 
@@ -775,7 +767,7 @@ Canvas::surefind_canvas(const String &id, String &warnings)
 			String errors;
 			external_canvas=open_canvas_as(get_identifier().file_system->get_identifier(file_name), file_name, errors, warnings);
 			if(!external_canvas)
-				throw runtime_error(errors);
+				throw std::runtime_error(errors);
 			externals_[file_name]=external_canvas;
 		}
 
@@ -784,7 +776,7 @@ Canvas::surefind_canvas(const String &id, String &warnings)
 
 	// If we do not have any resolution, then we assume that the
 	// request is for this immediate canvas
-	if(id.find_first_of(':')==string::npos)
+	if(id.find_first_of(':')==std::string::npos)
 	{
 		Children::iterator iter;
 
@@ -802,17 +794,17 @@ Canvas::surefind_canvas(const String &id, String &warnings)
 	// If the first character is the separator, then
 	// this references the root canvas.
 	if(id[0]==':')
-		return get_root()->surefind_canvas(string(id,1),warnings);
+		return get_root()->surefind_canvas(std::string(id,1),warnings);
 
 	// Now we know that the requested Canvas is in a child
 	// of this canvas. We have to find that canvas and
 	// call "find_canvas" on it, and return the result.
 
-	String canvas_name=string(id,0,id.find_first_of(':'));
+	String canvas_name=std::string(id,0,id.find_first_of(':'));
 
 	Canvas::Handle child_canvas=surefind_canvas(canvas_name,warnings);
 
-	return child_canvas->surefind_canvas(string(id,id.find_first_of(':')+1),warnings);
+	return child_canvas->surefind_canvas(std::string(id,id.find_first_of(':')+1),warnings);
 }
 
 Canvas::Handle
@@ -835,7 +827,7 @@ Canvas::find_canvas(const String &id, String &warnings)const
 
 	// If the ID contains a "#" character, then a filename is
 	// expected on the left side.
-	if(id.find_first_of('#')!=string::npos)
+	if(id.find_first_of('#')!=std::string::npos)
 	{
 		// If '#' is the first character, remove it
 		// and attempt to parse the ID again.
@@ -846,7 +838,7 @@ Canvas::find_canvas(const String &id, String &warnings)const
 		String file_name(id,0,id.find_first_of('#'));
 		String external_id(id,id.find_first_of('#')+1);
 
-		file_name=unix_to_local_path(file_name);
+		file_name=FileSystem::fix_slashes(file_name);
 
 		Canvas::Handle external_canvas;
 
@@ -861,7 +853,7 @@ Canvas::find_canvas(const String &id, String &warnings)const
 			String errors, warnings;
 			external_canvas=open_canvas_as(get_identifier().file_system->get_identifier(file_name), file_name, errors, warnings);
 			if(!external_canvas)
-				throw runtime_error(errors);
+				throw std::runtime_error(errors);
 			externals_[file_name]=external_canvas;
 		}
 
@@ -870,7 +862,7 @@ Canvas::find_canvas(const String &id, String &warnings)const
 
 	// If we do not have any resolution, then we assume that the
 	// request is for this immediate canvas
-	if(id.find_first_of(':')==string::npos)
+	if(id.find_first_of(':')==std::string::npos)
 	{
 		Children::const_iterator iter;
 
@@ -886,17 +878,17 @@ Canvas::find_canvas(const String &id, String &warnings)const
 	// If the first character is the separator, then
 	// this references the root canvas.
 	if(id[0]==':')
-		return get_root()->find_canvas(string(id,1), warnings);
+		return get_root()->find_canvas(std::string(id,1), warnings);
 
 	// Now we know that the requested Canvas is in a child
 	// of this canvas. We have to find that canvas and
 	// call "find_canvas" on it, and return the result.
 
-	String canvas_name=string(id,0,id.find_first_of(':'));
+	String canvas_name=std::string(id,0,id.find_first_of(':'));
 
 	Canvas::ConstHandle child_canvas=find_canvas(canvas_name, warnings);
 
-	return child_canvas->find_canvas(string(id,id.find_first_of(':')+1), warnings);
+	return child_canvas->find_canvas(std::string(id,id.find_first_of(':')+1), warnings);
 }
 
 Canvas::Handle
@@ -1118,7 +1110,7 @@ Canvas::add_child_canvas(Canvas::Handle child_canvas, const synfig::String& id)
 		throw std::runtime_error("Cannot add child canvas because it belongs to someone else!");
 
 	if(!valid_id(id))
-		throw runtime_error("Invalid ID");
+		throw std::runtime_error("Invalid ID");
 	
 	try
 	{
@@ -1145,7 +1137,7 @@ Canvas::remove_child_canvas(Canvas::Handle child_canvas)
 		return parent_->remove_child_canvas(child_canvas);
 
 	if(child_canvas->parent_!=this)
-		throw runtime_error("Given child does not belong to me");
+		throw std::runtime_error("Given child does not belong to me");
 
 	if(find(children().begin(),children().end(),child_canvas)==children().end())
 		throw Exception::IDNotFound(child_canvas->get_id());
@@ -1413,7 +1405,7 @@ Canvas::rename_group(const String&old_name,const String&new_name)
 	// A.B
 	{
 		size_t pos = 0;
-		while ((pos = new_name.find(GROUP_NEST_CHAR, pos)) != string::npos) {
+		while ((pos = new_name.find(GROUP_NEST_CHAR, pos)) != std::string::npos) {
 			std::map<String,std::set<etl::handle<Layer> > >::iterator iter;
 			String name(new_name, 0, pos);
 			iter=group_db_.find(name);
@@ -1427,7 +1419,7 @@ Canvas::rename_group(const String&old_name,const String&new_name)
 
 	// rename itermediate layer sets
 	{
-		const string old_name_prefix = old_name + GROUP_NEST_CHAR;
+		const std::string old_name_prefix = old_name + GROUP_NEST_CHAR;
 
 		std::map<String,std::set<etl::handle<Layer> > >::iterator iter;
 
@@ -1497,9 +1489,8 @@ Canvas::show_structure(int i) const
 		else
 			printf(": no composite");
 		printf("\n");
-		if(dynamic_cast<Layer_PasteCanvas*>(layer.get()) != NULL)
+		if(Layer_PasteCanvas* paste_canvas = dynamic_cast<Layer_PasteCanvas*>(layer.get()))
 		{
-			Layer_PasteCanvas* paste_canvas(static_cast<Layer_PasteCanvas*>(layer.get()));
 			paste_canvas->get_sub_canvas()->show_structure(i+1);
 		}
 	}
@@ -1517,18 +1508,17 @@ Canvas::invoke_signal_value_node_child_removed(etl::handle<ValueNode> container,
 	signal_value_node_child_removed()(container, content);
 	Canvas::Handle canvas(this);
 #ifdef DEBUG_INVOKE_SVNCR
-	printf("%s:%d removed stuff from a canvas %lx with %zd parents\n", __FILE__, __LINE__, uintptr_t(canvas.get()), canvas->parent_set.size());
+	printf("%s:%d removed stuff from a canvas %lx with %zu parents\n", __FILE__, __LINE__, uintptr_t(canvas.get()), canvas->parent_count());
 #endif
-	for (std::set<Node*>::iterator iter = canvas->parent_set.begin(); iter != canvas->parent_set.end(); iter++)
-	{
-		if (Layer* layer = dynamic_cast<Layer*>(*iter))
+	auto find_layers_to_invoke_signals = [container, content] (Node* canvas_parent) -> bool {
+		if (Layer* layer = dynamic_cast<Layer*>(canvas_parent))
 		{
 #ifdef DEBUG_INVOKE_SVNCR
 			printf("it's a layer %lx\n", uintptr_t(layer));
-			printf("%s:%d it's a layer with %zd parents\n", __FILE__, __LINE__, layer->parent_set.size());
+			printf("%s:%d it's a layer with %zu parents\n", __FILE__, __LINE__, layer->parent_count());
 #endif
-			for (std::set<Node*>::iterator iter = layer->parent_set.begin(); iter != layer->parent_set.end(); iter++)
-				if (Canvas* canvas = dynamic_cast<Canvas*>(*iter))
+			auto invoke_signal = [container, content] (Node* layer_parent) -> bool {
+				if (Canvas* canvas = dynamic_cast<Canvas*>(layer_parent))
 				{
 #ifdef DEBUG_INVOKE_SVNCR
 					printf("it's a canvas %lx\n", uintptr_t(canvas));
@@ -1549,12 +1539,17 @@ Canvas::invoke_signal_value_node_child_removed(etl::handle<ValueNode> container,
 				else
 					printf("not a canvas\n");
 #endif
+				return false;
+			};
+			layer->foreach_parent(invoke_signal);
 		}
 #ifdef DEBUG_INVOKE_SVNCR
 		else
 			printf("not a layer\n");
 #endif
-	}
+		return false;
+	};
+	canvas->foreach_parent(find_layers_to_invoke_signals);
 }
 
 #if 0
@@ -1569,10 +1564,10 @@ void
 Canvas::show_canvas_ancestry()const
 {
 	String layer;
-	// printf("%s:%d parent set size = %zd\n", __FILE__, __LINE__, parent_set.size());
-	if (parent_set.size() == 1)
+	// printf("%s:%d parent set size = %zu\n", __FILE__, __LINE__, parent_count());
+	if (parent_count() == 1)
 	{
-		Node* node(*(parent_set.begin()));
+		Node* node(get_first_parent()));
 		if (dynamic_cast<Layer*>(node))
 		{
 			layer = (dynamic_cast<Layer*>(node))->get_description();

@@ -2,22 +2,25 @@
 /*!	\file noise.cpp
 **	\brief Implementation of the "Noise Gradient" layer
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007 Chris Moore
 **	Copyright (c) 2011-2013 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -42,14 +45,13 @@
 #include <synfig/renddesc.h>
 #include <synfig/surface.h>
 #include <synfig/value.h>
-#include <time.h>
+#include <ctime>
 
 #endif
 
 /* === M A C R O S ========================================================= */
 
 using namespace synfig;
-using namespace etl;
 
 /* === G L O B A L S ======================================================= */
 
@@ -66,7 +68,7 @@ SYNFIG_LAYER_SET_VERSION(Noise,"0.0");
 Noise::Noise():
 	Layer_Composite(1.0,Color::BLEND_COMPOSITE),
 	param_gradient(ValueBase(Gradient(Color::black(), Color::white()))),
-	param_random(ValueBase(int(time(NULL)))),
+	param_random(ValueBase(int(time(nullptr)))),
 	param_size(ValueBase(Vector(1,1))),
 	param_smooth(ValueBase(int(RandomNoise::SMOOTH_COSINE))),
 	param_detail(ValueBase(int(4))),
@@ -203,10 +205,14 @@ Noise::calc_supersample(const synfig::Point &/*x*/, float /*pw*/,float /*ph*/)co
 synfig::Layer::Handle
 Noise::hit_check(synfig::Context context, const synfig::Point &point)const
 {
+	bool check_myself_first;
+	auto layer = basic_hit_check(context, point, check_myself_first);
+
+	if (!check_myself_first)
+		return layer;
+
 	if(get_blend_method()==Color::BLEND_STRAIGHT && get_amount()>=0.5)
 		return const_cast<Noise*>(this);
-	if(get_amount()==0.0)
-		return context.hit_check(point);
 	if(color_func(point,0,context).get_a()>0.5)
 		return const_cast<Noise*>(this);
 	return synfig::Layer::Handle();

@@ -1,23 +1,26 @@
 /* === S Y N F I G ========================================================= */
-/*!	\file gtkmm/renddesc.cpp
+/*!	\file gui/renddesc.cpp
 **	\brief Template File
-**
-**	$Id$
 **
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007 Chris Moore
 **  Copyright (c) 2010 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -33,7 +36,7 @@
 
 #include <gui/renddesc.h>
 
-#include <ETL/misc>
+#include <synfig/misc.h>
 
 #include <gtkmm/box.h>
 #include <gtkmm/drawingarea.h>
@@ -42,12 +45,12 @@
 #include <gtkmm/stylecontext.h>
 
 #include <gui/localization.h>
+#include <gui/widgets/widget_link.h>
 
 #endif
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 using namespace studio;
 
@@ -233,9 +236,8 @@ void Widget_RendDesc::set_rend_desc(const synfig::RendDesc &rend_desc)
 	if(update_lock)return;
 	rend_desc_=rend_desc;
 
-	// Activate link width and height by default
-	activate_ratio_wh();
 	refresh();
+	activate_ratio_wh();
 }
 
 void
@@ -511,15 +513,9 @@ Widget_RendDesc::on_ratio_wh_toggled()
 	UpdateLock lock(update_lock);
 
 	if(toggle_wh_ratio->get_active())
-	{
 		activate_ratio_wh();
-	}
 	else
-	{
-		rend_desc_.set_flags(rend_desc_.get_flags()&~RendDesc::LINK_IM_ASPECT);
-		rend_desc_.set_flags(rend_desc_.get_flags()|RendDesc::PX_ASPECT);
-	}
-	refresh();
+		deactivate_ratio_wh();
 }
 
 void
@@ -528,6 +524,15 @@ Widget_RendDesc::activate_ratio_wh()
 	rend_desc_.set_pixel_ratio(adjustment_width->get_value(), adjustment_height->get_value());
 	rend_desc_.set_flags(rend_desc_.get_flags()|RendDesc::LINK_IM_ASPECT);
 	rend_desc_.set_flags(rend_desc_.get_flags()&~RendDesc::PX_ASPECT);
+	refresh();
+}
+
+void
+Widget_RendDesc::deactivate_ratio_wh()
+{
+	rend_desc_.set_flags(rend_desc_.get_flags()&~RendDesc::LINK_IM_ASPECT);
+	rend_desc_.set_flags(rend_desc_.get_flags()|RendDesc::PX_ASPECT);
+	refresh();
 }
 
 void
@@ -642,7 +647,6 @@ Widget_RendDesc::connect_signals()
 Gtk::Widget *
 Widget_RendDesc::create_image_tab()
 {
-
 	Gtk::Box *panelBox = manage(new Gtk::Box(Gtk::ORIENTATION_VERTICAL, 12));
 	panelBox->set_hexpand(true);
 	panelBox->set_vexpand(true);
@@ -652,7 +656,6 @@ Widget_RendDesc::create_image_tab()
 	Gtk::Frame *imageSizeFrame = manage(new Gtk::Frame(_("Image Size")));
 	imageSizeFrame->set_shadow_type(Gtk::SHADOW_NONE);
 	((Gtk::Label *) imageSizeFrame->get_label_widget())->set_markup(_("<b>Image Size</b>"));
-//	panelBox->pack_start(*imageSizeFrame, false, false, 0);
 	panelBox->pack_start(*imageSizeFrame, Gtk::PACK_SHRINK);
 
 	Gtk::Grid *imageSizeGrid = manage(new Gtk::Grid());
@@ -751,7 +754,6 @@ Widget_RendDesc::create_image_tab()
 Gtk::Widget *
 Widget_RendDesc::create_time_tab()
 {
-	
 	Gtk::Box *panelBox = manage(new Gtk::Box(Gtk::ORIENTATION_VERTICAL, 12));  // for future widgets
 	panelBox->get_style_context()->add_class("dialog-main-content");
 	panelBox->set_vexpand(true);
@@ -811,7 +813,6 @@ Widget_RendDesc::create_time_tab()
 Gtk::Widget *
 Widget_RendDesc::create_gamma_tab()
 {
-
 	Gtk::Box *panelBox = manage(new Gtk::Box(Gtk::ORIENTATION_VERTICAL, 12));
 	panelBox->get_style_context()->add_class("dialog-main-content");
 	panelBox->set_vexpand(true);
@@ -896,7 +897,6 @@ Widget_RendDesc::create_gamma_tab()
 Gtk::Widget *
 Widget_RendDesc::create_other_tab()
 {
-
 	Gtk::Box *panelBox = manage(new Gtk::Box(Gtk::ORIENTATION_VERTICAL, 12));
 	panelBox->get_style_context()->add_class("dialog-main-content");
 	panelBox->set_vexpand(true);

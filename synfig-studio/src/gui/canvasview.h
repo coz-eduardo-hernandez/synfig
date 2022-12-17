@@ -2,22 +2,25 @@
 /*!	\file canvasview.h
 **	\brief Template Header
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **	Copyright (c) 2009 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -55,9 +58,8 @@
 #include <gtkmm/toolbutton.h>
 #include <gtkmm/uimanager.h>
 
-#include <ETL/clock>
-
 #include <synfig/canvas.h>
+#include <synfig/clock.h>
 #include <synfig/context.h>
 #include <synfig/rect.h>
 #include <synfig/soundprocessor.h>
@@ -74,7 +76,6 @@
 #include "dialogs/dialog_waypoint.h"
 #include "dials/framedial.h"
 #include "dials/jackdial.h"
-#include "dials/resolutiondial.h"
 #include "dials/toggleducksdial.h"
 #include "docks/dockable.h"
 #include "helpers.h"
@@ -117,11 +118,13 @@ class WorkArea;
 class Widget_Enum;
 class Preview;
 struct PreviewInfo;
+class ResolutionDial;
 class Widget_CanvasTimeslider;
 class Widget_Time;
 class Dock_Layers;
 class Dock_Children;
 class Dock_Keyframes;
+class KeyFrameDial;
 
 class LockDucks: public etl::shared_object {
 private:
@@ -287,16 +290,13 @@ private:
 	Gtk::ToggleButton *timetrackbutton;
 	Gtk::Grid *timetrack;
 	Gtk::Button *keyframebutton;
-	Gtk::ToggleButton *pastkeyframebutton;
-	Gtk::ToggleButton *futurekeyframebutton;
+	KeyFrameDial *keyframedial;
 	bool toggling_animate_mode_;
 	FrameDial *framedial;
 	JackDial *jackdial;
-	Gtk::ToggleButton *jackbutton;
-	Widget_Time *offset_widget;
 	ToggleDucksDial toggleducksdial;
 	bool toggling_ducks_;
-	ResolutionDial resolutiondial;
+	ResolutionDial* resolutiondial_;
 	bool changing_resolution_;
 	Glib::RefPtr<Gtk::Adjustment> future_onion_adjustment_;
 	Glib::RefPtr<Gtk::Adjustment> past_onion_adjustment_;
@@ -340,6 +340,7 @@ private:
 
 	Glib::RefPtr<Gtk::ToggleAction> grid_snap_toggle;
 	Glib::RefPtr<Gtk::ToggleAction> grid_show_toggle;
+	Glib::RefPtr<Gtk::ToggleAction> rulers_show_toggle;
 	Glib::RefPtr<Gtk::ToggleAction> guides_snap_toggle;
 	Glib::RefPtr<Gtk::ToggleAction> guides_show_toggle;
 	Glib::RefPtr<Gtk::ToggleAction> onion_skin_toggle;
@@ -356,7 +357,7 @@ private:
 
 	etl::handle<LockDucks> ducks_playing_lock;
 	sigc::connection playing_connection;
-	etl::clock playing_timer;
+	synfig::clock playing_timer;
 	synfig::Time playing_time;
 
 	sigc::signal<void> signal_deleted_;
@@ -466,6 +467,7 @@ private:
 	void increase_low_res_pixel_size();
 	void toggle_low_res_pixel_flag();
 	void set_onion_skins();
+	void toggle_show_ruler();
 	void toggle_show_grid();
 	void toggle_snap_grid();
 	void toggle_show_guides();
@@ -486,6 +488,9 @@ private:
 
 	static void save_all();
 
+	//helper function for import_file()
+	bool is_same_file(const std::string &filename);
+	
 	/*
  -- ** -- P U B L I C   M E T H O D S -----------------------------------------
 	*/
@@ -661,6 +666,7 @@ public:
 protected:
 	void on_select_layers();
 	void on_unselect_layers();
+	void on_select_parent_layer();
 	void on_input_device_changed(GdkDevice*);
 	void on_hide();
 	bool on_button_press_event(GdkEventButton *event);
@@ -713,6 +719,8 @@ private:
 	void set_jack_offset(const synfig::Time &value);
 	static int jack_sync_callback(jack_transport_state_t state, jack_position_t *pos, void *arg);
 	#endif
+
+	void show_dependencies() const;
 }; // END of class CanvasView
 
 

@@ -2,22 +2,25 @@
 /*!	\file valuenode_add.cpp
 **	\brief Implementation of the "Add" valuenode conversion.
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **  Copyright (c) 2011 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -36,6 +39,7 @@
 
 #include <synfig/general.h>
 #include <synfig/localization.h>
+#include <synfig/misc.h>
 #include <synfig/valuenode_registry.h>
 #include <synfig/color.h>
 #include <synfig/gradient.h>
@@ -43,23 +47,19 @@
 #include <synfig/angle.h>
 #include <synfig/real.h>
 
-#include <ETL/misc>
-#include <ETL/stringf>
-
 #include <stdexcept>
 
 #endif
 
 /* === U S I N G =========================================================== */
 
-using namespace etl;
 using namespace synfig;
 
 /* === M A C R O S ========================================================= */
 
 /* === G L O B A L S ======================================================= */
 
-REGISTER_VALUENODE(ValueNode_Add, RELEASE_VERSION_0_61_07, "add", "Add")
+REGISTER_VALUENODE(ValueNode_Add, RELEASE_VERSION_0_61_07, "add", N_("Add"))
 
 /* === P R O C E D U R E S ================================================= */
 
@@ -68,8 +68,7 @@ REGISTER_VALUENODE(ValueNode_Add, RELEASE_VERSION_0_61_07, "add", "Add")
 synfig::ValueNode_Add::ValueNode_Add(const ValueBase &value):
 	LinkableValueNode(value.get_type())
 {
-	Vocab ret(get_children_vocab());
-	set_children_vocab(ret);
+	init_children_vocab();
 	set_link("scalar",ValueNode_Const::create(Real(1.0)));
 	Type& type(value.get_type());
 
@@ -128,7 +127,7 @@ ValueNode_Add::create_new()const
 }
 
 ValueNode_Add*
-ValueNode_Add::create(const ValueBase& value)
+ValueNode_Add::create(const ValueBase& value, etl::loose_handle<Canvas>)
 {
 	return new ValueNode_Add(value);
 }
@@ -141,8 +140,8 @@ synfig::ValueNode_Add::~ValueNode_Add()
 synfig::ValueBase
 synfig::ValueNode_Add::operator()(Time t)const
 {
-	if (getenv("SYNFIG_DEBUG_VALUENODE_OPERATORS"))
-		printf("%s:%d operator()\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_VALUENODE_OPERATORS",
+		"%s:%d operator()\n", __FILE__, __LINE__);
 
 	if(!ref_a || !ref_b)
 		throw std::runtime_error(strprintf("ValueNode_Add: %s",_("One or both of my parameters aren't set!")));

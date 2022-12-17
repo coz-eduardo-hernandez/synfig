@@ -2,8 +2,6 @@
 /*!	\file loadcanvas.cpp
 **	\brief writeme
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
@@ -12,15 +10,20 @@
 **	Copyright (c) 2011, 2012 Carlos López
 **	Copyright (c) 2012-2013 Konstantin Dmitriev
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -48,13 +51,14 @@
 
 #include "loadcanvas.h"
 
+#include <ETL/stringf>
+
 #include "general.h"
 #include "localization.h"
 
 #include "blur.h"
-#include "boneweightpair.h"
+#include "dashitem.h"
 #include "exception.h"
-#include "importer.h"
 #include "gradient.h"
 #include "layer.h"
 #include "string.h"
@@ -77,14 +81,7 @@
 #include "valuenodes/valuenode_dilist.h"
 #include "valuenodes/valuenode_dynamiclist.h"
 #include "valuenodes/valuenode_exp.h"
-#include "valuenodes/valuenode_linear.h"
-#include "valuenodes/valuenode_reference.h"
 #include "valuenodes/valuenode_scale.h"
-#include "valuenodes/valuenode_segcalctangent.h"
-#include "valuenodes/valuenode_segcalcvertex.h"
-#include "valuenodes/valuenode_stripes.h"
-#include "valuenodes/valuenode_timedswap.h"
-#include "valuenodes/valuenode_twotone.h"
 #include "valuenodes/valuenode_weightedaverage.h"
 #include "valuenodes/valuenode_wplist.h"
 #include "valuenodes/valuenode_average.h"
@@ -93,7 +90,6 @@
 
 /* === U S I N G =========================================================== */
 
-using namespace std;
 using namespace synfig;
 using namespace etl;
 
@@ -197,7 +193,7 @@ CanvasParser::error_unexpected_element(xmlpp::Node *element,const String &got)
 void
 CanvasParser::warning(xmlpp::Node *element, const String &text)
 {
-	string str=strprintf("%s:<%s>:%d: ",filename.c_str(),element->get_name().c_str(),element->get_line())+text;
+	std::string str=strprintf("%s:<%s>:%d: ",filename.c_str(),element->get_name().c_str(),element->get_line())+text;
 
 	synfig::warning(str);
 	// cerr<<str<<endl;
@@ -211,20 +207,20 @@ CanvasParser::warning(xmlpp::Node *element, const String &text)
 void
 CanvasParser::error(xmlpp::Node *element, const String &text)
 {
-	string str=strprintf("%s:<%s>:%d: error: ",filename.c_str(),element->get_name().c_str(),element->get_line())+text;
+	std::string str=strprintf("%s:<%s>:%d: error: ",filename.c_str(),element->get_name().c_str(),element->get_line())+text;
 	total_errors_++;
 	errors_text += "  * " + str + "\n";
 	if(!allow_errors_)
-		throw runtime_error(str);
-	cerr<<str.c_str()<<endl;
+		throw std::runtime_error(str);
+	std::cerr<<str.c_str()<<std::endl;
 	//	synfig::error(str);
 }
 
 void
 CanvasParser::fatal_error(xmlpp::Node *element, const String &text)
 {
-	string str=strprintf("%s:<%s>:%d:",filename.c_str(),element->get_name().c_str(),element->get_line())+text;
-	throw runtime_error(str);
+	std::string str=strprintf("%s:<%s>:%d:",filename.c_str(),element->get_name().c_str(),element->get_line())+text;
+	throw std::runtime_error(str);
 }
 
 
@@ -250,7 +246,7 @@ CanvasParser::parse_keyframe(xmlpp::Element *element,Canvas::Handle canvas)
 	bool active=true;
 	if(element->get_attribute("active")) 
 	{
-		string val=element->get_attribute("active")->get_value();
+		std::string val=element->get_attribute("active")->get_value();
 		if(is_false(val))
 			active=false;
 	}
@@ -274,7 +270,7 @@ CanvasParser::parse_real(xmlpp::Element *element)
 		return false;
 	}
 
-	string val=element->get_attribute("value")->get_value();
+	std::string val=element->get_attribute("value")->get_value();
 
 	return atof(val.c_str());
 }
@@ -293,7 +289,7 @@ CanvasParser::parse_time(xmlpp::Element *element,Canvas::Handle canvas)
 		return false;
 	}
 
-	string val=element->get_attribute("value")->get_value();
+	std::string val=element->get_attribute("value")->get_value();
 
 	return Time(val,canvas->rend_desc().get_frame_rate());
 }
@@ -312,7 +308,7 @@ CanvasParser::parse_integer(xmlpp::Element *element)
 		return false;
 	}
 
-	string val=element->get_attribute("value")->get_value();
+	std::string val=element->get_attribute("value")->get_value();
 
 	return atoi(val.c_str());
 }
@@ -331,7 +327,7 @@ CanvasParser::parse_guid(xmlpp::Element *element)
 		return GUID::zero();
 	}
 
-	string val=element->get_attribute("value")->get_value();
+	std::string val=element->get_attribute("value")->get_value();
 
 	return GUID(val);
 }
@@ -476,7 +472,7 @@ CanvasParser::parse_bool(xmlpp::Element *element)
 		return false;
 	}
 
-	string val=element->get_attribute("value")->get_value();
+	std::string val=element->get_attribute("value")->get_value();
 
 	if(is_true(val))
 		return true;
@@ -523,7 +519,7 @@ CanvasParser::parse_gradient(xmlpp::Element *node)
 ValueBase
 CanvasParser::parse_list(xmlpp::Element *element,Canvas::Handle canvas)
 {
-	vector<ValueBase> value_list;
+	std::vector<ValueBase> value_list;
 
 	xmlpp::Element::NodeList list = element->get_children();
 	for(xmlpp::Element::NodeList::iterator iter = list.begin(); iter != list.end(); ++iter)
@@ -1063,6 +1059,7 @@ CanvasParser::parse_width_point(xmlpp::Element *element)
 			}
 			ret.set_side_type_after(parse_integer(dynamic_cast<xmlpp::Element*>(*iter)));
 		}
+		else
 		// Lower Boundary
 		if(child->get_name()=="lower_bound")
 		{
@@ -1088,6 +1085,7 @@ CanvasParser::parse_width_point(xmlpp::Element *element)
 			ret.set_lower_bound(parse_real(dynamic_cast<xmlpp::Element*>(*iter)));
 		}
 		// Upper Boundary
+		else
 		if(child->get_name()=="upper_bound")
 		{
 			xmlpp::Element::NodeList list = child->get_children();
@@ -1255,7 +1253,7 @@ CanvasParser::parse_angle(xmlpp::Element *element)
 		return Angle();
 	}
 
-	string val=element->get_attribute("value")->get_value();
+	std::string val=element->get_attribute("value")->get_value();
 
 	return Angle::deg(atof(val.c_str()));
 }
@@ -1421,8 +1419,8 @@ CanvasParser::parse_interpolation(xmlpp::Element *element,String attribute)
 {
 	if(!element->get_attribute(attribute))
 		return INTERPOLATION_UNDEFINED;
-	
-	string val=element->get_attribute(attribute)->get_value();
+
+	std::string val=element->get_attribute(attribute)->get_value();
 	if(val=="halt")
 		return INTERPOLATION_HALT;
 	else if(val=="constant")
@@ -1447,7 +1445,7 @@ CanvasParser::parse_static(xmlpp::Element *element)
 	if(!element->get_attribute("static"))
 		return false;
 
-	string val=element->get_attribute("static")->get_value();
+	std::string val=element->get_attribute("static")->get_value();
 
 	if(is_true(val))
 		return true;
@@ -1592,7 +1590,7 @@ CanvasParser::parse_value(xmlpp::Element *element,Canvas::Handle canvas)
 		{ // weighted value
 			types_namespace::TypeWeightedValueBase *type_weighted_value =
 				dynamic_cast<types_namespace::TypeWeightedValueBase*>(type);
-			if (type_weighted_value != NULL)
+			if (type_weighted_value)
 			{
 				ValueBase ret = parse_weighted_value(element, *type_weighted_value, canvas);
 				ret.set_static(parse_static(element));
@@ -1604,7 +1602,7 @@ CanvasParser::parse_value(xmlpp::Element *element,Canvas::Handle canvas)
 		{ // pair
 			types_namespace::TypePairBase *type_pair =
 				dynamic_cast<types_namespace::TypePairBase*>(type);
-			if (type_pair != NULL)
+			if (type_pair)
 			{
 				ValueBase ret = parse_pair(element, *type_pair, canvas);
 				ret.set_static(parse_static(element));
@@ -1845,7 +1843,7 @@ CanvasParser::parse_animated(xmlpp::Element *element,Canvas::Handle canvas)
 etl::handle<LinkableValueNode>
 CanvasParser::parse_linkable_value_node(xmlpp::Element *element,Canvas::Handle canvas)
 {
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_linkable_value_node\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_linkable_value_node\n", __FILE__, __LINE__);
 
 	// Determine the type
 	if(!element->get_attribute("type"))
@@ -1863,7 +1861,7 @@ CanvasParser::parse_linkable_value_node(xmlpp::Element *element,Canvas::Handle c
 		return 0;
 	}
 
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d creating linkable '%s' type '%s'\n", __FILE__, __LINE__, element->get_name().c_str(), type.description.name.c_str());
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d creating linkable '%s' type '%s'\n", __FILE__, __LINE__, element->get_name().c_str(), type.description.name.c_str());
 	handle<LinkableValueNode> value_node=ValueNodeRegistry::create(element->get_name(),type);
  	//handle<ValueNode> c[value_node->link_count()]; changed because of clang complain
 	std::vector<handle<ValueNode> > c(value_node->link_count());
@@ -1919,9 +1917,13 @@ CanvasParser::parse_linkable_value_node(xmlpp::Element *element,Canvas::Handle c
 				}
 				int placeholders(canvas->value_node_list().placeholder_count());
 				c[index] = canvas->surefind_value_node(id);
-				if(placeholders == canvas->value_node_list().placeholder_count())
-					if(PlaceholderValueNode::Handle::cast_dynamic(c[index]) )
-						throw Exception::IDNotFound("parse_linkable_value_noode()");
+				// Don't accept links for unsolved exported Value Nodes.
+				// Except if it is parsing <bones>, as this section is defined before <defs>
+				if (!in_bones_section) {
+					if(placeholders == canvas->value_node_list().placeholder_count())
+						if(PlaceholderValueNode::Handle::cast_dynamic(c[index]) )
+							throw Exception::IDNotFound("parse_linkable_value_noode()");
+				}
 
 				if (!c[index])
 				{
@@ -1935,8 +1937,8 @@ CanvasParser::parse_linkable_value_node(xmlpp::Element *element,Canvas::Handle c
 				if (load_old_weighted_bonelink)
 				{
 					ValueNode_StaticList::Handle list = ValueNode_StaticList::Handle::cast_dynamic(c[index]);
-					ValueNode_BoneWeightPair::Handle wp = ValueNode_BoneWeightPair::Handle::cast_dynamic(list->get_link_vfunc(0));
-					ValueNode::Handle bone = wp->get_link_vfunc(0);
+					ValueNode_BoneWeightPair::Handle wp = ValueNode_BoneWeightPair::Handle::cast_dynamic(list->get_link(0));
+					ValueNode::Handle bone = wp->get_link(0);
 					
 					c[index] = bone;
 				}
@@ -2031,8 +2033,8 @@ CanvasParser::parse_linkable_value_node(xmlpp::Element *element,Canvas::Handle c
 				if (load_old_weighted_bonelink)
 				{
 					ValueNode_StaticList::Handle list = ValueNode_StaticList::Handle::cast_dynamic(c[index]);
-					ValueNode_BoneWeightPair::Handle wp = ValueNode_BoneWeightPair::Handle::cast_dynamic(list->get_link_vfunc(0));
-					ValueNode::Handle bone = wp->get_link_vfunc(0);
+					ValueNode_BoneWeightPair::Handle wp = ValueNode_BoneWeightPair::Handle::cast_dynamic(list->get_link(0));
+					ValueNode::Handle bone = wp->get_link(0);
 					
 					c[index] = bone;
 				}
@@ -2064,8 +2066,8 @@ CanvasParser::parse_linkable_value_node(xmlpp::Element *element,Canvas::Handle c
 	}
 
 	String version(canvas->get_version());
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d link_count() is %d\n", __FILE__, __LINE__, value_node->link_count());
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d value_node is %s\n", __FILE__, __LINE__, value_node->get_string().c_str());
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d link_count() is %d\n", __FILE__, __LINE__, value_node->link_count());
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d value_node is %s\n", __FILE__, __LINE__, value_node->get_string().c_str());
 	for (int i = 0; i < value_node->link_count(); i++)
 	{
 		if (!c[i])
@@ -2179,7 +2181,7 @@ CanvasParser::parse_linkable_value_node(xmlpp::Element *element,Canvas::Handle c
 		}
 	}
 
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_linkable_value_node done\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_linkable_value_node done\n", __FILE__, __LINE__);
 	return value_node;
 }
 
@@ -2228,7 +2230,7 @@ CanvasParser::parse_static_list(xmlpp::Element *element,Canvas::Handle canvas)
 			if(child->get_attribute("use"))
 			{
 				// \todo does this need to be able to read 'use="canvas"', like waypoints can now?  (see 'surefind_canvas' in this file)
-				string id=child->get_attribute("use")->get_value();
+				std::string id=child->get_attribute("use")->get_value();
 				try
 				{
 					list_entry=canvas->surefind_value_node(id);
@@ -2486,7 +2488,7 @@ CanvasParser::parse_dynamic_list(xmlpp::Element *element,Canvas::Handle canvas)
 			if(child->get_attribute("use"))
 			{
 				// \todo does this need to be able to read 'use="canvas"', like waypoints can now?  (see 'surefind_canvas' in this file)
-				string id=child->get_attribute("use")->get_value();
+				std::string id=child->get_attribute("use")->get_value();
 				try
 				{
 					list_entry.value_node=canvas->surefind_value_node(id);
@@ -2538,7 +2540,7 @@ CanvasParser::parse_dynamic_list(xmlpp::Element *element,Canvas::Handle canvas)
 handle<ValueNode>
 CanvasParser::parse_value_node(xmlpp::Element *element,Canvas::Handle canvas)
 {
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node\n", __FILE__, __LINE__);
 	handle<ValueNode> value_node;
 	assert(element);
 
@@ -2547,12 +2549,12 @@ CanvasParser::parse_value_node(xmlpp::Element *element,Canvas::Handle canvas)
 	if(element->get_attribute("guid"))
 	{
 		guid=GUID(element->get_attribute("guid")->get_value())^canvas->get_root()->get_guid();
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d got guid %s\n", __FILE__, __LINE__, guid.get_string().c_str());
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d and element name = '%s'\n", __FILE__, __LINE__, element->get_name().c_str());
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d got guid %s\n", __FILE__, __LINE__, guid.get_string().c_str());
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d and element name = '%s'\n", __FILE__, __LINE__, element->get_name().c_str());
 		value_node=guid_cast<ValueNode>(guid);
 		if(value_node)
 		{
-			if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node done early\n", __FILE__, __LINE__);
+			DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node done early\n", __FILE__, __LINE__);
 			if(element->get_name()!="canvas" && ValueBase::ident_type(element->get_name()) != type_nil)
 			{
 				if (element->get_name() == "bone_valuenode")
@@ -2560,7 +2562,7 @@ CanvasParser::parse_value_node(xmlpp::Element *element,Canvas::Handle canvas)
 					ValueNode_Bone::Handle value_node_bone(ValueNode_Bone::Handle::cast_dynamic(value_node));
 					if (!value_node_bone)
 					{
-						if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d bone_valuenode isn't a ValueNode_Bone?  It's a placeholder?\n", __FILE__, __LINE__);
+						DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d bone_valuenode isn't a ValueNode_Bone?  It's a placeholder?\n", __FILE__, __LINE__);
 						return value_node;
 					}
 
@@ -2572,10 +2574,10 @@ CanvasParser::parse_value_node(xmlpp::Element *element,Canvas::Handle canvas)
 	}
 
 	// If ValueBase::ident_type() recognizes the name, then we know it's a ValueBase
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d element name = '%s'\n", __FILE__, __LINE__, element->get_name().c_str());
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d element name = '%s'\n", __FILE__, __LINE__, element->get_name().c_str());
 	if(element->get_name()!="canvas" && ValueBase::ident_type(element->get_name()) != type_nil)
 	{
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node calls parse_value\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node calls parse_value\n", __FILE__, __LINE__);
 		ValueBase data=parse_value(element,canvas);
 
 		if(!data.is_valid())
@@ -2595,25 +2597,25 @@ CanvasParser::parse_value_node(xmlpp::Element *element,Canvas::Handle canvas)
 	else
 	if(element->get_name()=="hermite" || element->get_name()=="animated")
 	{
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node calls parse_animated\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node calls parse_animated\n", __FILE__, __LINE__);
 		value_node=parse_animated(element,canvas);
 	}
 	else
 	if(element->get_name()=="static_list")
 	{
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node calls parse_static_list\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node calls parse_static_list\n", __FILE__, __LINE__);
 		value_node=parse_static_list(element,canvas);
 	}
 	else
 	if(element->get_name()=="dynamic_list")
 	{
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node calls parse_dynamic_list\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node calls parse_dynamic_list\n", __FILE__, __LINE__);
 		value_node=parse_dynamic_list(element,canvas);
 	}
 	else
 	if(element->get_name()=="bline") // This is not a typo. The dynamic list parser will parse a bline.
 	{
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node calls parse_dynamic_list for bline\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node calls parse_dynamic_list for bline\n", __FILE__, __LINE__);
 		value_node=parse_dynamic_list(element,canvas);
 	}
 	else
@@ -2628,23 +2630,23 @@ CanvasParser::parse_value_node(xmlpp::Element *element,Canvas::Handle canvas)
 	else
 	if(ValueNodeRegistry::book().count(element->get_name()))
 	{
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node calls parse_linkable_value_node\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node calls parse_linkable_value_node\n", __FILE__, __LINE__);
 		value_node=parse_linkable_value_node(element,canvas);
 		if (!value_node)
 		{
-			if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_linkable_value_node gave us a null valuenode\n", __FILE__, __LINE__);
+			DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_linkable_value_node gave us a null valuenode\n", __FILE__, __LINE__);
 			value_node = PlaceholderValueNode::create();
 		}
 	}
 	else
 	if(element->get_name()=="canvas")
 	{
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node calls parse_canvas\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node calls parse_canvas\n", __FILE__, __LINE__);
 		value_node=ValueNode_Const::create(parse_canvas(element,canvas,true));
 	}
 	else
 	{
-		if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node doesn't know what to call\n", __FILE__, __LINE__);
+		DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node doesn't know what to call\n", __FILE__, __LINE__);
 		error_unexpected_element(element,element->get_name());
 		error(element, strprintf(_("Expected a ValueNode.  Refer to '%s'"),
 								 VALUENODE_COMPATIBILITY_URL));
@@ -2658,7 +2660,7 @@ CanvasParser::parse_value_node(xmlpp::Element *element,Canvas::Handle canvas)
 	// value_node list
 	if(value_node && element->get_attribute("id"))
 	{
-		string id=element->get_attribute("id")->get_value();
+		std::string id=element->get_attribute("id")->get_value();
 
 		//value_node->set_id(id);
 
@@ -2684,14 +2686,14 @@ CanvasParser::parse_value_node(xmlpp::Element *element,Canvas::Handle canvas)
 		}
 	}
 	value_node->set_guid(guid);
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_value_node done\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_value_node done\n", __FILE__, __LINE__);
 	return value_node;
 }
 
 void
 CanvasParser::parse_canvas_defs(xmlpp::Element *element,Canvas::Handle canvas)
 {
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_canvas_defs\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_canvas_defs\n", __FILE__, __LINE__);
 	assert(element->get_name()=="defs");
 	xmlpp::Element::NodeList list = element->get_children();
 	for(xmlpp::Element::NodeList::iterator iter = list.begin(); iter != list.end(); ++iter)
@@ -2705,16 +2707,17 @@ CanvasParser::parse_canvas_defs(xmlpp::Element *element,Canvas::Handle canvas)
 		else
 			parse_value_node(child,canvas);
 	}
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_canvas_defs done\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_canvas_defs done\n", __FILE__, __LINE__);
 }
 
 std::list<ValueNode::Handle>
 CanvasParser::parse_canvas_bones(xmlpp::Element *element,Canvas::Handle canvas)
 {
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_canvas_bones\n", __FILE__, __LINE__);
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_canvas_bones\n", __FILE__, __LINE__);
 	assert(element->get_name()=="bones");
 	xmlpp::Element::NodeList list = element->get_children();
 	std::list<ValueNode::Handle> bone_list;
+	in_bones_section = true;
 	for(xmlpp::Element::NodeList::iterator iter = list.begin(); iter != list.end(); ++iter)
 	{
 		xmlpp::Element *child(dynamic_cast<xmlpp::Element*>(*iter));
@@ -2723,7 +2726,8 @@ CanvasParser::parse_canvas_bones(xmlpp::Element *element,Canvas::Handle canvas)
 		else
 			bone_list.push_back(parse_value_node(child,canvas));
 	}
-	if (getenv("SYNFIG_DEBUG_LOAD_CANVAS")) printf("%s:%d parse_canvas_bones done\n", __FILE__, __LINE__);
+	in_bones_section = false;
+	DEBUG_LOG("SYNFIG_DEBUG_LOAD_CANVAS", "%s:%d parse_canvas_bones done\n", __FILE__, __LINE__);
 	return bone_list;
 }
 
@@ -3229,16 +3233,16 @@ CanvasParser::parse_canvas(xmlpp::Element *element,Canvas::Handle parent,bool in
 
 	if(element->get_attribute("view-box"))
 	{
-		string values=element->get_attribute("view-box")->get_value();
+		std::string values=element->get_attribute("view-box")->get_value();
 		Vector
 			tl,
 			br;
-		tl[0]=atof(string(values.data(),values.find(' ')).c_str());
-		values=string(values.begin()+values.find(' ')+1,values.end());
-		tl[1]=atof(string(values.data(),values.find(' ')).c_str());
-		values=string(values.begin()+values.find(' ')+1,values.end());
-		br[0]=atof(string(values.data(),values.find(' ')).c_str());
-		values=string(values.begin()+values.find(' ')+1,values.end());
+		tl[0]=atof(std::string(values.data(),values.find(' ')).c_str());
+		values=std::string(values.begin()+values.find(' ')+1,values.end());
+		tl[1]=atof(std::string(values.data(),values.find(' ')).c_str());
+		values=std::string(values.begin()+values.find(' ')+1,values.end());
+		br[0]=atof(std::string(values.data(),values.find(' ')).c_str());
+		values=std::string(values.begin()+values.find(' ')+1,values.end());
 		br[1]=atof(values.c_str());
 
 		canvas->rend_desc().set_tl(tl);
@@ -3247,17 +3251,17 @@ CanvasParser::parse_canvas(xmlpp::Element *element,Canvas::Handle parent,bool in
 
 	if(element->get_attribute("bgcolor"))
 	{
-		string values=element->get_attribute("bgcolor")->get_value();
+		std::string values=element->get_attribute("bgcolor")->get_value();
 		Color bg;
 
-		bg.set_r(atof(string(values.data(),values.find(' ')).c_str()));
-		values=string(values.begin()+values.find(' ')+1,values.end());
+		bg.set_r(atof(std::string(values.data(),values.find(' ')).c_str()));
+		values=std::string(values.begin()+values.find(' ')+1,values.end());
 
-		bg.set_g(atof(string(values.data(),values.find(' ')).c_str()));
-		values=string(values.begin()+values.find(' ')+1,values.end());
+		bg.set_g(atof(std::string(values.data(),values.find(' ')).c_str()));
+		values=std::string(values.begin()+values.find(' ')+1,values.end());
 
-		bg.set_b(atof(string(values.data(),values.find(' ')).c_str()));
-		values=string(values.begin()+values.find(' ')+1,values.end());
+		bg.set_b(atof(std::string(values.data(),values.find(' ')).c_str()));
+		values=std::string(values.begin()+values.find(' ')+1,values.end());
 
 		bg.set_a(atof(values.c_str()));
 
@@ -3266,11 +3270,11 @@ CanvasParser::parse_canvas(xmlpp::Element *element,Canvas::Handle parent,bool in
 
 	if(element->get_attribute("focus"))
 	{
-		string values=element->get_attribute("focus")->get_value();
+		std::string values=element->get_attribute("focus")->get_value();
 		Vector focus;
 
-		focus[0]=atof(string(values.data(),values.find(' ')).c_str());
-		values=string(values.begin()+values.find(' ')+1,values.end());
+		focus[0]=atof(std::string(values.data(),values.find(' ')).c_str());
+		values=std::string(values.begin()+values.find(' ')+1,values.end());
 		focus[1]=atof(values.c_str());
 
 		canvas->rend_desc().set_focus(focus);
@@ -3278,7 +3282,7 @@ CanvasParser::parse_canvas(xmlpp::Element *element,Canvas::Handle parent,bool in
 
 	canvas->rend_desc().set_flags(RendDesc::PX_ASPECT|RendDesc::IM_SPAN);
 
-	list<ValueNode::Handle> bone_list;
+	std::list<ValueNode::Handle> bone_list;
 	xmlpp::Element::NodeList list = element->get_children();
 	for(xmlpp::Element::NodeList::iterator iter = list.begin(); iter != list.end(); ++iter)
 	{
@@ -3348,8 +3352,8 @@ CanvasParser::parse_canvas(xmlpp::Element *element,Canvas::Handle parent,bool in
 					size_t index = 0;
 					while (true) {
 					     /* Locate the substring to replace. */
-					     index = content.find(",", index);
-					     if (index == string::npos) break;
+					     index = content.find(',', index);
+					     if (index == std::string::npos) break;
 
 					     /* Make the replacement. */
 					     content.replace(index, 1, ".");
@@ -3369,7 +3373,7 @@ CanvasParser::parse_canvas(xmlpp::Element *element,Canvas::Handle parent,bool in
 				if(list.empty())
 					warning(child,_("blank \"name\" entity"));
 
-				string tmp;
+				std::string tmp;
 				for(xmlpp::Element::NodeList::iterator iter = list.begin(); iter != list.end(); ++iter)
 					if(dynamic_cast<xmlpp::TextNode*>(*iter))tmp+=dynamic_cast<xmlpp::TextNode*>(*iter)->get_content();
 				canvas->set_name(tmp);
@@ -3384,7 +3388,7 @@ CanvasParser::parse_canvas(xmlpp::Element *element,Canvas::Handle parent,bool in
 				if(list.empty())
 					warning(child,_("blank \"desc\" entity"));
 
-				string tmp;
+				std::string tmp;
 				for(xmlpp::Element::NodeList::iterator iter = list.begin(); iter != list.end(); ++iter)
 					if(dynamic_cast<xmlpp::TextNode*>(*iter))tmp+=dynamic_cast<xmlpp::TextNode*>(*iter)->get_content();
 				canvas->set_description(tmp);
@@ -3399,7 +3403,7 @@ CanvasParser::parse_canvas(xmlpp::Element *element,Canvas::Handle parent,bool in
 				if(list.empty())
 					warning(child,_("blank \"author\" entity"));
 
-				string tmp;
+				std::string tmp;
 				for(xmlpp::Element::NodeList::iterator iter = list.begin(); iter != list.end(); ++iter)
 					if(dynamic_cast<xmlpp::TextNode*>(*iter))tmp+=dynamic_cast<xmlpp::TextNode*>(*iter)->get_content();
 				canvas->set_author(tmp);
@@ -3487,7 +3491,7 @@ CanvasParser::parse_from_file_as(const FileSystem::Identifier &identifier,const 
 		if (stream)
 		{
 			if (filename_extension(identifier.filename) == ".sifz")
-				stream = FileSystem::ReadStream::Handle(new ZReadStream(stream));
+				stream = FileSystem::ReadStream::Handle(new ZReadStream(stream, zstreambuf::compression::gzip));
 
 			xmlpp::DomParser parser;
 			parser.parse_stream(*stream);
@@ -3515,7 +3519,7 @@ CanvasParser::parse_from_file_as(const FileSystem::Identifier &identifier,const 
 				return canvas;
 			}
 		} else {
-			throw runtime_error(String("  * ") + _("Can't find linked file") + " \"" + identifier.filename + "\"");
+			throw std::runtime_error(String("  * ") + _("Can't find linked file") + " \"" + identifier.filename + "\"");
 		}
 	}
 	catch(Exception::BadLinkName&) { synfig::error("BadLinkName Thrown"); }
@@ -3526,7 +3530,7 @@ CanvasParser::parse_from_file_as(const FileSystem::Identifier &identifier,const 
 	catch(xmlpp::internal_error &x)
 	{
 		if (!strcmp(x.what(), "Couldn't create parsing context"))
-			throw runtime_error(String("  * ") + _("Can't open file") + " \"" + identifier.filename + "\"");
+			throw std::runtime_error(String("  * ") + _("Can't open file") + " \"" + identifier.filename + "\"");
 		throw;
 	}
 	catch(const std::exception& ex)
@@ -3537,7 +3541,7 @@ CanvasParser::parse_from_file_as(const FileSystem::Identifier &identifier,const 
 	}
 	catch(const String& str)
 	{
-		cerr<<str.c_str()<<endl;
+		std::cerr<<str.c_str()<<std::endl;
 		//	synfig::error(str);
 		errors = str;
 		return Canvas::Handle();
@@ -3582,7 +3586,7 @@ CanvasParser::parse_as(xmlpp::Element* node,String &errors)
 	catch(xmlpp::internal_error &x)
 	{
 		if (!strcmp(x.what(), "Couldn't create parsing context"))
-			throw runtime_error(String("  * ") + _("Can't open file") + " \"" + "\"");
+			throw std::runtime_error(String("  * ") + _("Can't open file") + " \"" + "\"");
 		throw;
 	}
 	catch(const std::exception& ex)
@@ -3593,7 +3597,7 @@ CanvasParser::parse_as(xmlpp::Element* node,String &errors)
 	}
 	catch(const String& str)
 	{
-		cerr<<str.c_str()<<endl;
+		std::cerr<<str.c_str()<<std::endl;
 		errors = str;
 		return Canvas::Handle();
 	}

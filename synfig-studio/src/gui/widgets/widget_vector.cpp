@@ -2,20 +2,23 @@
 /*!	\file widget_vector.cpp
 **	\brief Template File
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
 **	\endlegal
 */
 /* ========================================================================= */
@@ -32,12 +35,10 @@
 #include <gui/widgets/widget_vector.h>
 
 #include <gtkmm/spinbutton.h>
-
 #include <gui/app.h>
 #include <gui/widgets/widget_distance.h>
 #include <synfig/general.h>
 #include <synfig/string_helper.h>
-
 #endif
 
 /* === U S I N G =========================================================== */
@@ -115,6 +116,9 @@ void Widget_Vector::init() {
 	distance_y->signal_value_changed().connect(sigc::mem_fun(*this,&studio::Widget_Vector::on_value_changed));
 	//distance_y->signal_activate().connect(sigc::mem_fun(*this,&studio::Widget_Vector::activate));
 	pack_start(*distance_y, Gtk::PACK_EXPAND_WIDGET);
+
+
+	add_events(Gdk::KEY_PRESS_MASK);
 
 	//spinbutton_x->show();
 	//spinbutton_y->show();
@@ -311,6 +315,34 @@ Widget_Vector::show_all_vfunc()
 	entry_y->show();
 	show();
 }
+
+bool Widget_Vector::on_key_press_event(GdkEventKey* key_event)
+{
+	if(key_event->keyval == GDK_KEY_Tab) 
+	{ 
+		if(entry_x->is_focus()) { 
+			entry_y->grab_focus() ;
+		} 
+		else 
+		{ 
+			Widget_Vector::activate() ;
+		}
+		return true;
+	}
+	if (key_event->keyval == GDK_KEY_ISO_Left_Tab) // for Shift+Tab
+	{ 
+		if(entry_y->is_focus()){
+			entry_x->grab_focus();
+		}
+		else 
+		{
+			Widget_Vector::activate();
+		}
+		return true;
+	}
+	return Gtk::Box::on_key_press_event(key_event);
+}
+
 
 GType Widget_Vector::gtype = 0;
 

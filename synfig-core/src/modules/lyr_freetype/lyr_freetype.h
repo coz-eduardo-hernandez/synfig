@@ -2,25 +2,26 @@
 /*!	\file lyr_freetype.h
 **	\brief Header file for implementation of the "Text" layer
 **
-**	$Id$
-**
 **	\legal
 **	Copyright (c) 2002-2005 Robert B. Quattlebaum Jr., Adrian Bentley
 **	Copyright (c) 2007, 2008 Chris Moore
 **	Copyright (c) 2012-2013 Carlos López
 **
-**	This package is free software; you can redistribute it and/or
-**	modify it under the terms of the GNU General Public License as
-**	published by the Free Software Foundation; either version 2 of
-**	the License, or (at your option) any later version.
+**	This file is part of Synfig.
 **
-**	This package is distributed in the hope that it will be useful,
+**	Synfig is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 2 of the License, or
+**	(at your option) any later version.
+**
+**	Synfig is distributed in the hope that it will be useful,
 **	but WITHOUT ANY WARRANTY; without even the implied warranty of
-**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-**	General Public License for more details.
-**	\endlegal
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
 **
-** === N O T E S ===========================================================
+**	You should have received a copy of the GNU General Public License
+**	along with Synfig.  If not, see <https://www.gnu.org/licenses/>.
+**	\endlegal
 **
 ** ========================================================================= */
 
@@ -38,7 +39,7 @@
 #include FT_GLYPH_H
 
 #if HAVE_HARFBUZZ
-#include <harfbuzz/hb.h>
+#include <hb.h>
 #endif
 
 /* === M A C R O S ========================================================= */
@@ -97,8 +98,6 @@ private:
 
 	void sync_vfunc() override;
 
-	synfig::Color color_func(const synfig::Point &x, int quality=10, synfig::ColorReal supersample=0)const;
-
 	mutable std::mutex mutex;
 	mutable std::mutex sync_mtx;
 
@@ -113,8 +112,6 @@ public:
 	bool set_param(const synfig::String & param, const synfig::ValueBase &value) override;
 	synfig::ValueBase get_param(const synfig::String & param) const override;
 
-	synfig::Color get_color(synfig::Context context, const synfig::Point &pos) const override;
-	synfig::Layer::Handle hit_check(synfig::Context context, const synfig::Point &point) const override;
 	synfig::Rect get_bounding_rect() const override;
 
 	Vocab get_param_vocab() const override;
@@ -124,6 +121,8 @@ public:
 
 protected:
 	synfig::rendering::Task::Handle build_composite_task_vfunc(synfig::ContextParams) const override;
+
+	bool is_inside_contour(const synfig::Point& p, bool ignore_feather) const override;
 
 private:
 	/*! The new_font() function try to load a font file
@@ -148,7 +147,7 @@ private:
 	synfig::Point contour_to_world(const synfig::Point& p) const;
 
 	enum SyncFlags {
-		SYNC_FONT,
+		SYNC_FONT = 1,
 		SYNC_TEXT,
 		SYNC_DIRECTION,
 		SYNC_COMPRESS,

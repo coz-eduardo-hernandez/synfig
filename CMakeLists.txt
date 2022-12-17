@@ -1,10 +1,16 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.6)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.14")
+	cmake_policy(SET CMP0087 NEW)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 project(synfig-studio)
 set(STUDIO_VERSION_MAJOR 1)
 set(STUDIO_VERSION_MINOR 5)
 set(STUDIO_VERSION_PATCH 0)
+
+option(ENABLE_TCMALLOC "Enable use of tcmalloc library" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug)
@@ -57,7 +63,7 @@ if(MSVC)
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 else()
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-inline-functions -fno-inline -g -O0 -Wall")
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-inline-functions -fno-inline -g -O0 -Wall")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-inline-functions -fno-inline -g -O0 -Wall -D_GLIBCXX_ASSERTIONS -U_GLIBCXX_USE_DEPRECATED")
 endif(MSVC)
 
 # This can be enabled once the address sanitization related errors are resolved.
@@ -68,6 +74,11 @@ message("-- CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 if (${ENABLE_TESTS})
 	enable_testing()
+endif()
+
+if(ENABLE_TCMALLOC)
+	find_library(TCMALLOC_LIBRARY NAMES tcmalloc libtcmalloc.so.4 REQUIRED)
+	message(STATUS "TCMALLOC_LIBRARY: ${TCMALLOC_LIBRARY}")
 endif()
 
 include(SynfigFindGit)
@@ -88,4 +99,5 @@ if(MSYS)
 	include(InstallMSYS2)
 endif()
 
+include(SynfigVcpkg)
 include(CPackConfig)
